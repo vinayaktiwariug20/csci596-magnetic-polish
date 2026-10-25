@@ -1,0 +1,4 @@
+c/*.bin
+c/platelet
+c/platelet_omp
+c/*.exe
