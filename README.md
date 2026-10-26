@@ -60,3 +60,24 @@ Checks:
 - 2 million random flakes at 5%: 1.5715 overlaps per flake vs excluded-volume theory phi*pi*a/h = 1.5708.
 
 Laptop timing, 2 million flakes: 16.1 s (1 thread), 8.6 s (2), 4.8 s (4), 3.1 s (8), 5.3x. Flakes are not sorted by cell yet, so memory access is scattered; sorting is the obvious next optimisation.
+
+## Contact dynamics: upper bound (Oct 26)
+
+`c/dynamics.c`: flakes at fixed random positions (overlap-free start), all in the field of the nail-centre texel, run through the switching protocol (5 s at 0 deg, 5 s at 90 deg, x6). Mode `ideal` ignores contact. Mode `hard` accepts a rotation step only if it creates no overlap (tries full, half, quarter step). Positions never move, so blocked flakes cannot slide away; `hard` is an upper bound on the effect of contact and `ideal` the lower bound.
+
+    cd c
+    python center_field.py ../spike/fields.json field_center.txt
+    gcc -O2 -fopenmp -o dynamics dynamics.c -lm
+    ./dynamics field_center.txt 0.03 20000 hard 1
+
+Mean flatness (n.N)^2 at the nail centre, 20000 flakes (1 = all mirror-like; geometric limit here is 1.000):
+
+| volume fraction | ideal, end | hard, end | full steps blocked |
+|---|---|---|---|
+| 1% | 1.000 | 0.962 | 6.9% |
+| 3% | 1.000 | 0.873 | 22% |
+| 10% | 1.000 | 0.593 | 66% |
+
+Checks: identical output on 1 and 8 threads; no overlaps at the end of any hard run; halving dt twice moves 3% from 0.873 to 0.857 and 10% from 0.593 to 0.583; 80000 flakes or another seed change the result by at most 0.004.
+
+Reading: if flakes could not move at all, contact would cost about 13% of the shine at 3% loading and 40% at 10%. The real effect is somewhere between this and zero; letting flakes translate (overdamped contact forces) is what narrows it. Bulk periodic box only, no nail surface or film walls yet.
