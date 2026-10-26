@@ -44,3 +44,19 @@ for what each test did and did not show. The C implementation and parallel versi
     python compare.py out.bin ../spike/platelet_spike_maps.npz
 
 Check: matches the Python spike to 1e-14 (6305 texels x 8 flakes). Laptop timing, 8 cores: 6.24 s (1 thread), 0.88 s (8 threads), 7.1x. This is the embarrassingly parallel floor; flake-flake contact is the next step.
+
+## Contact count in C (Oct 26)
+
+`c/contact.c` is the disc-disc overlap test from `spike/contact_spike.py` with a cell-list neighbour search and an OpenMP loop over flakes (each flake counts its own partners, so no write races).
+
+    cd c
+    gcc -O2 -fopenmp -o contact contact.c -lm
+    python contact_ref.py 4000 0.05 random in.bin ref.bin    # Python reference using the spike's own function
+    ./contact file in.bin out.bin && python contact_check.py out.bin ref.bin
+    OMP_NUM_THREADS=8 ./contact gen 2000000 0.05 1           # large random run
+
+Checks:
+- Identical per-flake counts to the Python spike for random and nearly aligned flakes at 1, 5 and 10% volume fraction (4000 flakes each).
+- 2 million random flakes at 5%: 1.5715 overlaps per flake vs excluded-volume theory phi*pi*a/h = 1.5708.
+
+Laptop timing, 2 million flakes: 16.1 s (1 thread), 8.6 s (2), 4.8 s (4), 3.1 s (8), 5.3x. Flakes are not sorted by cell yet, so memory access is scattered; sorting is the obvious next optimisation.
