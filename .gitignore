@@ -2,3 +2,8 @@ c/*.bin
 c/platelet
 c/platelet_omp
 c/*.exe
+c/soft
+c/soft_dt*
+c/dynamics
+c/dynamics_dt*
+c/contact
