@@ -155,3 +155,12 @@ Reading: after six switching cycles every texel sits on its geometric limit (n a
 2. Neighbour field. Non-overlapping flakes at the centre texel, each a rim of magnetic charge, cutoff 6a. Typical normal field from neighbours relative to |B| (median / 90th percentile): 1% 0.01-0.02 / 0.05-0.09, 3% 0.03-0.06 / 0.08-0.15, 10% 0.05-0.11 / 0.14-0.28. Flatness loss if each flake tilts by that much: at most 0.007 (chi_in 4) and 0.025 (chi_in 8) at 10%.
 
 Reading: the largest effect is the film field, a first-order shift of the bead off-centre at 3-10% loading (0.20 to 0.30-0.38 at texel 3136). It needs no pair sums: it is a correction to the field. Neighbour fields tilt flakes by a few degrees, comparable to the contact transient. Not yet checked: dipole forces moving flakes into chains. Rough drift at 10% is about one radius over the full 60 s protocol, independent of viscosity (rotation and drift both scale as 1/eta).
+
+## Film field in the dynamics (Oct 27)
+
+`c/soft.c` takes an optional last argument `chi_in` (chi_perp = 1): at every step the field component along the nail normal is cut to B_z / (1 + chi_zz), with chi_zz = phi <chi_in (1 - nz^2) + nz^2> from the current flake orientations. Example: `./soft field_3136.txt 0.10 5000 free 1 12 4`.
+
+- No contact (`ideal`, 2000 flakes, film 12a): end flatness at all 7 scan texels, phi 1/3/10%, chi_in 4 and 8, equals the self-consistent estimate of `dipole_estimate.py` to three decimals (e.g. texel 3136: 0.214/0.235/0.303 for chi_in 4, 0.224/0.263/0.375 for chi_in 8).
+- With contact (`free`, 5000 flakes, texel 3136, chi_in 4): 3% end 0.235, 10% end 0.304. Contact again changes nothing at the end.
+
+Reading: in this model, loading moves the bead through the film field alone; contact does not add to it. Literature notes are in PLAN.md.

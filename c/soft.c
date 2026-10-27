@@ -49,6 +49,7 @@
 #define HOLD 5.0
 #define CYCLES 6
 #define SPREAD 0.55
+#define CHI_PERP 1.0
 #define NSAMP 16
 #define NGOLD 12
 #define MAXSWEEP 20
@@ -341,7 +342,7 @@ static void flat_profile(const double *Nn, const char *label) {
 }
 
 int main(int argc, char **argv) {
-    if (argc < 6) { fprintf(stderr, "usage: %s field_center.txt phi N ideal|fixed|free seed [film_thickness_in_a]\n", argv[0]); return 1; }
+    if (argc < 6) { fprintf(stderr, "usage: %s field_center.txt phi N ideal|fixed|free seed [film_thickness_in_a [chi_in]]\n", argv[0]); return 1; }
     double B0[3], B90[3], Nn[3], kappa0;
     FILE *f = fopen(argv[1], "r");
     if (!f || fscanf(f, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf", B0, B0 + 1, B0 + 2, B90, B90 + 1, B90 + 2, Nn, Nn + 1, Nn + 2, &kappa0) != 10) {
@@ -354,6 +355,9 @@ int main(int argc, char **argv) {
     rs = 88172645463325252ULL ^ (unsigned long long)atoll(argv[5]);
     double Lz = argc > 6 ? atof(argv[6]) : 0;
     wall = Lz > 0;
+    /* film field: chi_in > 0 switches on the field of the magnetised film (needs walls); chi_perp = CHI_PERP */
+    double chi_in = argc > 7 ? atof(argv[7]) : 0;
+    if (chi_in > 0 && !wall) { fprintf(stderr, "film field needs a film thickness\n"); return 1; }
     if (wall) {
         /* rotate the fields so that the local nail normal is z (Rodrigues: R u = u + v x u + v x (v x u) / (1 + c)) */
         unit(Nn);
@@ -416,8 +420,16 @@ int main(int argc, char **argv) {
     int nhold = (int)floor(HOLD / DT + 0.5);
     for (int cyc = 0; cyc < CYCLES; cyc++) {
         for (int ph = 0; ph < 2; ph++) {
-            const double *B = ph ? B90 : B0;
+            const double *Bext = ph ? B90 : B0;
+            double B[3] = {Bext[0], Bext[1], Bext[2]};
             for (int s = 0; s < nhold; s++, nsteps++) {
+                if (chi_in > 0) {
+                    /* thin magnetised sheet: inside, the normal field is cut to B_z / (1 + chi_zz), chi_zz = phi <chi_in (1 - nz^2) + chi_perp nz^2> */
+                    double sz = 0;
+                    #pragma omp parallel for reduction(+:sz)
+                    for (int i = 0; i < N; i++) { double c2 = x[3 * i + 2] * x[3 * i + 2]; sz += chi_in * (1 - c2) + CHI_PERP * c2; }
+                    B[2] = Bext[2] / (1 + phi * sz / N);
+                }
                 if (mode) { memcpy(xold, x, sizeof(double) * 3 * N); memcpy(posold, pos, sizeof(double) * 3 * N); }
                 #pragma omp parallel for schedule(static)
                 for (int i = 0; i < N; i++) rk4(x + 3 * i, B, kap[i], DT);
@@ -446,8 +458,8 @@ int main(int argc, char **argv) {
         disp += sqrt(r2);
     }
     if (wall) flat_profile(Nn, "at end      ");
-    printf("%-5s phi=%.2f N=%d dt=%g film=%ga  flat: start %.3f  hold1 %.3f  end %.3f  sweeps/step %.1f  unconverged steps %lld (worst pen %.2fH)  "
+    printf("%-5s phi=%.2f N=%d dt=%g film=%ga chi_in=%g  flat: start %.3f  hold1 %.3f  end %.3f  sweeps/step %.1f  unconverged steps %lld (worst pen %.2fH)  "
            "crossings seen %lld  reverted flake-steps %.3f%%  mean shift %.2fa  wall %.1f s\n",
-           argv[4], phi, N, DT, Lz, fs, f1, mean_flat(Nn), (double)nsweeps / nsteps, unconverged, worst / H, ncross, 100.0 * nrevert / ((double)N * nsteps), disp / N, t1 - t0);
+           argv[4], phi, N, DT, Lz, chi_in, fs, f1, mean_flat(Nn), (double)nsweeps / nsteps, unconverged, worst / H, ncross, 100.0 * nrevert / ((double)N * nsteps), disp / N, t1 - t0);
     return 0;
 }
