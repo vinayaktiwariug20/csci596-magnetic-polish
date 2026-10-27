@@ -25,9 +25,13 @@
  *
  * modes: ideal (no contact), fixed (positions frozen, contacts resolved by rotation only),
  *        free (contacts resolved by rotation and translation).
+ * Box: a periodic cube by default.  With a film thickness Lz (in units of A) the box is periodic in x and y
+ * and bounded by two flat walls, the nail at z = 0 and the film top at z = Lz (the nail normal must be z).
+ * A flake keeps its lowest (highest) rim point H/2 from a wall; walls take part in the projection sweeps
+ * but do not move, so the flake takes the whole correction.  Flatness is then also reported by height.
  *
  * Build: gcc -O2 -fopenmp -o soft soft.c -lm
- * Run:   ./soft field_center.txt phi N ideal|fixed|free seed
+ * Run:   ./soft field_center.txt phi N ideal|fixed|free seed [film_thickness_in_a]
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -147,8 +151,8 @@ static int may_touch(const double *ni, const double *d, const double *nj) {
     return fabs(dot(d, ni)) < s && fabs(dot(d, nj)) < s;
 }
 
-static int N, mode, nc, ncell, *head, *next, *flag;
-static double L, cs, *pos, *x, *dpos, *drot, *kap, *xold, *posold;
+static int N, mode, wall, ncv[3], ncell, *head, *next, *flag;
+static double Lb[3], csv[3], *pos, *x, *dpos, *drot, *kap, *xold, *posold;
 
 /* zero-thickness discs cut through each other (near-parallel pairs never count: their distance is reliable) */
 static int crossing(const double *ni, const double *nj, const double *d) {
@@ -157,13 +161,42 @@ static int crossing(const double *ni, const double *nj, const double *d) {
     return dot(c, c) > 0.05 * 0.05 && overlap(ni, nj, d);
 }
 
-static double min_image(double v) { return v - L * round(v / L); }
+/* minimum image along axis k; z is not periodic when there are walls */
+static double mi(double v, int k) { return (wall && k == 2) ? v : v - Lb[k] * round(v / Lb[k]); }
+
+static void cell_of(const double *p, int *c) {
+    for (int k = 0; k < 3; k++) {
+        c[k] = (int)(p[k] / csv[k]);
+        if (c[k] >= ncv[k]) c[k] = ncv[k] - 1;
+        if (c[k] < 0) c[k] = 0;
+    }
+}
+
+/* neighbouring cell (ox, oy, oz) of cell c, or -1 beyond a wall */
+static int nb_cell(const int *c, int ox, int oy, int oz) {
+    int z = c[2] + oz;
+    if (wall) { if (z < 0 || z >= ncv[2]) return -1; }
+    else z = (z + ncv[2]) % ncv[2];
+    return (((c[0] + ox + ncv[0]) % ncv[0]) * ncv[1] + (c[1] + oy + ncv[1]) % ncv[1]) * ncv[2] + z;
+}
+
+static void set_grid(double side) {
+    ncell = 1;
+    for (int k = 0; k < 3; k++) {
+        ncv[k] = (int)floor(Lb[k] / side);
+        if (ncv[k] < 1) ncv[k] = 1;
+        if (ncv[k] < 3 && !(wall && k == 2)) { fprintf(stderr, "box too small (L = %g), raise N\n", Lb[k]); exit(1); }
+        csv[k] = Lb[k] / ncv[k]; ncell *= ncv[k];
+    }
+}
 
 static void build_cells(void) {
     for (int c = 0; c < ncell; c++) head[c] = -1;
     for (int i = 0; i < N; i++) {
-        int c = (((int)(pos[3 * i] / cs) % nc) * nc + (int)(pos[3 * i + 1] / cs) % nc) * nc + (int)(pos[3 * i + 2] / cs) % nc;
-        next[i] = head[c]; head[c] = i;
+        int c[3];
+        cell_of(pos + 3 * i, c);
+        int id = (c[0] * ncv[1] + c[1]) * ncv[2] + c[2];
+        next[i] = head[id]; head[id] = i;
     }
 }
 
@@ -177,6 +210,23 @@ static double mobility(const double *n, const double *r, const double *e, int tr
     return m;
 }
 
+/* push g on a flake (normal n) at contact point r: accumulate displacement DP and rotation DR */
+static void apply_push(const double *n, const double *r, const double *g, double *DP, double *DR) {
+    double t[3];
+    if (mode == 2) { double gn = dot(g, n); for (int k = 0; k < 3; k++) DP[k] += gn * n[k] + 1.5 * (g[k] - gn * n[k]); }
+    cross(r, g, t);
+    for (int k = 0; k < 3; k++) DR[k] += 1.5 * t[k];
+}
+
+/* penetration of a flake (centre height z, normal n) into the wall on side sd (-1: nail at z = 0,
+ * +1: film top at z = Lz); r = lowest (highest) rim point relative to the centre */
+static double wall_pen(double z, const double *n, int sd, double *r) {
+    double s = sqrt(fmax(0.0, 1 - n[2] * n[2]));
+    if (s > 1e-9) { for (int k = 0; k < 3; k++) r[k] = A * (sd * (k == 2) - sd * n[2] * n[k]) / s; }
+    else r[0] = r[1] = r[2] = 0;
+    return sd < 0 ? H / 2 - (z - A * s) : H / 2 - (Lb[2] - z - A * s);
+}
+
 /* one Jacobi projection sweep; returns the largest penetration found (before the corrections) */
 static double sweep(long long *ncont, long long *ncross) {
     double mp = 0;
@@ -184,13 +234,15 @@ static double sweep(long long *ncont, long long *ncross) {
     #pragma omp parallel for schedule(dynamic, 64) reduction(max:mp) reduction(+:nct, ncr)
     for (int i = 0; i < N; i++) {
         double DP[3] = {0, 0, 0}, DR[3] = {0, 0, 0}, *ni = x + 3 * i;
-        int cx = (int)(pos[3 * i] / cs) % nc, cy = (int)(pos[3 * i + 1] / cs) % nc, cz = (int)(pos[3 * i + 2] / cs) % nc;
+        int c[3];
+        cell_of(pos + 3 * i, c);
         for (int ox = -1; ox <= 1; ox++) for (int oy = -1; oy <= 1; oy++) for (int oz = -1; oz <= 1; oz++) {
-            int nb = (((cx + ox + nc) % nc) * nc + (cy + oy + nc) % nc) * nc + (cz + oz + nc) % nc;
+            int nb = nb_cell(c, ox, oy, oz);
+            if (nb < 0) continue;
             for (int j = head[nb]; j >= 0; j = next[j]) {
                 if (j == i) continue;
                 double d[3], r2 = 0, *nj = x + 3 * j;
-                for (int k = 0; k < 3; k++) { d[k] = min_image(pos[3 * j + k] - pos[3 * i + k]); r2 += d[k] * d[k]; }
+                for (int k = 0; k < 3; k++) { d[k] = mi(pos[3 * j + k] - pos[3 * i + k], k); r2 += d[k] * d[k]; }
                 if (r2 >= (2 * A + H) * (2 * A + H) || !may_touch(ni, d, nj)) continue;
                 if (crossing(ni, nj, d)) { ncr++; continue; }        /* left to the backstop */
                 double p[3], q[3], D = disc_dist(ni, d, nj, p, q);
@@ -200,13 +252,21 @@ static double sweep(long long *ncont, long long *ncross) {
                 for (int k = 0; k < 3; k++) qj[k] = q[k] - d[k];      /* contact point relative to centre j */
                 double pen = H - D;
                 double w = mobility(ni, p, e, mode == 2) + mobility(nj, qj, e, mode == 2);
-                double gm = RELAX * pen / (w > 1e-12 ? w : 1e-12), g[3], t[3];
+                double gm = RELAX * pen / (w > 1e-12 ? w : 1e-12), g[3];
                 for (int k = 0; k < 3; k++) g[k] = -gm * e[k];         /* push on i, away from j */
-                if (mode == 2) { double gn = dot(g, ni); for (int k = 0; k < 3; k++) DP[k] += gn * ni[k] + 1.5 * (g[k] - gn * ni[k]); }
-                cross(p, g, t);
-                for (int k = 0; k < 3; k++) DR[k] += 1.5 * t[k];
+                apply_push(ni, p, g, DP, DR);
                 nct++; if (pen > mp) mp = pen;
             }
+        }
+        /* walls do not move, so the flake takes the whole correction */
+        for (int sd = -1; wall && sd <= 1; sd += 2) {
+            double r[3], pen = wall_pen(pos[3 * i + 2], ni, sd, r);
+            if (pen <= 0) continue;
+            double e[3] = {0, 0, sd}, w = mobility(ni, r, e, mode == 2);
+            if (w < 1e-12) continue;      /* frozen flat flake on the wall: nothing can move */
+            double g[3] = {0, 0, -sd * RELAX * pen / w};
+            apply_push(ni, r, g, DP, DR);
+            nct++; if (pen > mp) mp = pen;
         }
         memcpy(dpos + 3 * i, DP, sizeof DP); memcpy(drot + 3 * i, DR, sizeof DR);
     }
@@ -216,7 +276,10 @@ static double sweep(long long *ncont, long long *ncross) {
         cross(drot + 3 * i, n, wn);
         for (int k = 0; k < 3; k++) n[k] += wn[k];
         unit(n);
-        if (mode == 2) for (int k = 0; k < 3; k++) { double y = pos[3 * i + k] + dpos[3 * i + k]; pos[3 * i + k] = y - L * floor(y / L); }
+        if (mode == 2) for (int k = 0; k < 3; k++) {
+            double y = pos[3 * i + k] + dpos[3 * i + k];
+            pos[3 * i + k] = (wall && k == 2) ? y : y - Lb[k] * floor(y / Lb[k]);
+        }
     }
     *ncont += nct; *ncross += ncr;
     return mp;
@@ -231,13 +294,15 @@ static long long revert_crossings(void) {
         #pragma omp parallel for schedule(dynamic, 64) reduction(+:nf)
         for (int i = 0; i < N; i++) {
             flag[i] = 0;
-            int cx = (int)(pos[3 * i] / cs) % nc, cy = (int)(pos[3 * i + 1] / cs) % nc, cz = (int)(pos[3 * i + 2] / cs) % nc;
+            int c[3];
+            cell_of(pos + 3 * i, c);
             for (int ox = -1; ox <= 1 && !flag[i]; ox++) for (int oy = -1; oy <= 1 && !flag[i]; oy++) for (int oz = -1; oz <= 1 && !flag[i]; oz++) {
-                int nb = (((cx + ox + nc) % nc) * nc + (cy + oy + nc) % nc) * nc + (cz + oz + nc) % nc;
+                int nb = nb_cell(c, ox, oy, oz);
+                if (nb < 0) continue;
                 for (int j = head[nb]; j >= 0; j = next[j]) {
                     if (j == i) continue;
                     double d[3], r2 = 0;
-                    for (int k = 0; k < 3; k++) { d[k] = min_image(pos[3 * j + k] - pos[3 * i + k]); r2 += d[k] * d[k]; }
+                    for (int k = 0; k < 3; k++) { d[k] = mi(pos[3 * j + k] - pos[3 * i + k], k); r2 += d[k] * d[k]; }
                     if (r2 < 4 * A * A && crossing(x + 3 * i, x + 3 * j, d)) { flag[i] = 1; break; }
                 }
             }
@@ -258,8 +323,24 @@ static double mean_flat(const double *Nn) {
     return s / N;
 }
 
+/* flatness in height bins of width 2A (one flake diameter) above the nail; wall runs only */
+static void flat_profile(const double *Nn, const char *label) {
+    int nb = (int)ceil(Lb[2] / (2 * A));
+    printf("  %s flatness by height above the nail (count):", label);
+    for (int b = 0; b < nb; b++) {
+        double s = 0;
+        int n = 0;
+        for (int i = 0; i < N; i++) {
+            if ((int)(pos[3 * i + 2] / (2 * A)) != b) continue;
+            double c = dot(x + 3 * i, Nn); s += c * c; n++;
+        }
+        printf("  %g-%ga %.3f (%d)", 2.0 * b, fmin(2.0 * b + 2, Lb[2]), n ? s / n : 0.0, n);
+    }
+    printf("\n");
+}
+
 int main(int argc, char **argv) {
-    if (argc < 6) { fprintf(stderr, "usage: %s field_center.txt phi N ideal|fixed|free seed\n", argv[0]); return 1; }
+    if (argc < 6) { fprintf(stderr, "usage: %s field_center.txt phi N ideal|fixed|free seed [film_thickness_in_a]\n", argv[0]); return 1; }
     double B0[3], B90[3], Nn[3], kappa0;
     FILE *f = fopen(argv[1], "r");
     if (!f || fscanf(f, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf", B0, B0 + 1, B0 + 2, B90, B90 + 1, B90 + 2, Nn, Nn + 1, Nn + 2, &kappa0) != 10) {
@@ -270,13 +351,16 @@ int main(int argc, char **argv) {
     N = atoi(argv[3]);
     mode = !strcmp(argv[4], "free") ? 2 : !strcmp(argv[4], "fixed") ? 1 : 0;
     rs = 88172645463325252ULL ^ (unsigned long long)atoll(argv[5]);
-    L = cbrt(N * M_PI * A * A * H / phi);
+    double Lz = argc > 6 ? atof(argv[6]) : 0;
+    wall = Lz > 0;
+    if (wall) {
+        if (fabs(Nn[2]) < 0.999) { fprintf(stderr, "wall runs need the nail normal along z (got %g %g %g)\n", Nn[0], Nn[1], Nn[2]); return 1; }
+        Lb[0] = Lb[1] = sqrt(N * M_PI * A * A * H / (phi * Lz)); Lb[2] = Lz;
+    } else Lb[0] = Lb[1] = Lb[2] = cbrt(N * M_PI * A * A * H / phi);
     for (int s = 0; s < NSAMP; s++) { cs_tab[s] = cos(2 * M_PI * s / NSAMP); sn_tab[s] = sin(2 * M_PI * s / NSAMP); }
 
     /* random sequential addition: same overlap test, cell size and RNG order as dynamics.c */
-    nc = (int)floor(L / (2 * A));
-    if (nc < 3) { fprintf(stderr, "box too small (L = %g), raise N\n", L); return 1; }
-    cs = L / nc; ncell = nc * nc * nc;
+    set_grid(2 * A);
     head = malloc(sizeof(int) * ncell); next = malloc(sizeof(int) * N);
     for (int c = 0; c < ncell; c++) head[c] = -1;
     pos = malloc(sizeof(double) * 3 * N); x = malloc(sizeof(double) * 3 * N);
@@ -285,30 +369,31 @@ int main(int argc, char **argv) {
     long long tries = 0;
     for (int i = 0; i < N;) {
         if (++tries > 2000LL * N) { fprintf(stderr, "insertion jammed at %d of %d flakes\n", i, N); return 1; }
-        double p[3], n[3];
-        for (int k = 0; k < 3; k++) { p[k] = urand() * L; n[k] = grand(); }
+        double p[3], n[3], r[3];
+        for (int k = 0; k < 3; k++) { p[k] = urand() * Lb[k]; n[k] = grand(); }
         unit(n);
-        int cx = (int)(p[0] / cs) % nc, cy = (int)(p[1] / cs) % nc, cz = (int)(p[2] / cs) % nc, ok = 1;
+        if (wall && (wall_pen(p[2], n, -1, r) > 0 || wall_pen(p[2], n, 1, r) > 0)) continue;
+        int c[3], ok = 1;
+        cell_of(p, c);
         for (int ox = -1; ox <= 1 && ok; ox++) for (int oy = -1; oy <= 1 && ok; oy++) for (int oz = -1; oz <= 1 && ok; oz++) {
-            int nb = (((cx + ox + nc) % nc) * nc + (cy + oy + nc) % nc) * nc + (cz + oz + nc) % nc;
+            int nb = nb_cell(c, ox, oy, oz);
+            if (nb < 0) continue;
             for (int j = head[nb]; j >= 0 && ok; j = next[j]) {
                 double d[3], r2 = 0;
-                for (int k = 0; k < 3; k++) { d[k] = min_image(pos[3 * j + k] - p[k]); r2 += d[k] * d[k]; }
+                for (int k = 0; k < 3; k++) { d[k] = mi(pos[3 * j + k] - p[k], k); r2 += d[k] * d[k]; }
                 if (r2 < 4 * A * A && overlap_ij(i, j, n, x + 3 * j, d)) ok = 0;
             }
         }
         if (!ok) continue;
         memcpy(pos + 3 * i, p, sizeof p); memcpy(x + 3 * i, n, sizeof n);
-        int c = (cx * nc + cy) * nc + cz;
-        next[i] = head[c]; head[c] = i;
+        int id = (c[0] * ncv[1] + c[1]) * ncv[2] + c[2];
+        next[i] = head[id]; head[id] = i;
         i++;
     }
     for (int i = 0; i < N; i++) kap[i] = kappa0 * exp(SPREAD * grand());
 
     /* from here on cells must hold spherodisc contacts: side >= 2A + H */
-    nc = (int)floor(L / (2 * A + H));
-    if (nc < 3) { fprintf(stderr, "box too small (L = %g), raise N\n", L); return 1; }
-    cs = L / nc; ncell = nc * nc * nc;
+    set_grid(2 * A + H);
     free(head); head = malloc(sizeof(int) * ncell);
     double *pos0 = malloc(sizeof(double) * 3 * N);
     memcpy(pos0, pos, sizeof(double) * 3 * N);
@@ -338,7 +423,7 @@ int main(int argc, char **argv) {
                 if (it == MAXSWEEP) { unconverged++; if (mp > worst) worst = mp; }
                 nrevert += revert_crossings();
             }
-            if (cyc == 0 && ph == 0) f1 = mean_flat(Nn);
+            if (cyc == 0 && ph == 0) { f1 = mean_flat(Nn); if (wall) flat_profile(Nn, "after hold 1"); }
         }
     }
 #ifdef _OPENMP
@@ -347,11 +432,12 @@ int main(int argc, char **argv) {
     double disp = 0;
     for (int i = 0; i < N; i++) {
         double r2 = 0;
-        for (int k = 0; k < 3; k++) { double d = min_image(pos[3 * i + k] - pos0[3 * i + k]); r2 += d * d; }
+        for (int k = 0; k < 3; k++) { double d = mi(pos[3 * i + k] - pos0[3 * i + k], k); r2 += d * d; }
         disp += sqrt(r2);
     }
-    printf("%-5s phi=%.2f N=%d dt=%g  flat: start %.3f  hold1 %.3f  end %.3f  sweeps/step %.1f  unconverged steps %lld (worst pen %.2fH)  "
+    if (wall) flat_profile(Nn, "at end      ");
+    printf("%-5s phi=%.2f N=%d dt=%g film=%ga  flat: start %.3f  hold1 %.3f  end %.3f  sweeps/step %.1f  unconverged steps %lld (worst pen %.2fH)  "
            "crossings seen %lld  reverted flake-steps %.3f%%  mean shift %.2fa  wall %.1f s\n",
-           argv[4], phi, N, DT, fs, f1, mean_flat(Nn), (double)nsweeps / nsteps, unconverged, worst / H, ncross, 100.0 * nrevert / ((double)N * nsteps), disp / N, t1 - t0);
+           argv[4], phi, N, DT, Lz, fs, f1, mean_flat(Nn), (double)nsweeps / nsteps, unconverged, worst / H, ncross, 100.0 * nrevert / ((double)N * nsteps), disp / N, t1 - t0);
     return 0;
 }

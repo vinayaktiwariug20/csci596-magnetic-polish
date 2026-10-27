@@ -102,3 +102,19 @@ Checks: `ideal` mode at dt = 0.05 reproduces dynamics.c exactly (0.499 after hol
 Reading: in the bulk, contact barely changes the final alignment even at 10% loading, because flakes slide a fraction of a radius out of each other's way. The large loss in the frozen bound comes from pinning, not from contact as such. In overdamped dynamics viscosity sets the time scale of both magnetic and contact motion, so it does not change this comparison, only how far flakes get within a hold. Open: the nail surface (a wall that blocks sliding), larger boxes, and performance (10%: 600 s for 5000 flakes on 8 threads, dominated by the disc-distance search).
 
 Box-size check (Oct 27): 10% sliding with 20000 flakes and another seed gives 0.478 after hold 1 and 0.993 at the end (5000 flakes: 0.479 and 0.993), mean shift 0.44 a, 1.5% reverted flake-steps; 1384 s on 8 threads.
+
+## Nail surface and film top (Oct 27)
+
+`soft.c` takes an optional film thickness (in flake radii): the box is then periodic sideways and bounded by a wall at the nail (z = 0) and one at the film top (z = Lz). A flake keeps its lowest (highest) rim point H/2 from a wall; walls join the projection sweeps but do not move. Without the argument the cube runs reproduce the previous results exactly (3%: 0.493 after hold 1, 0.998 at end, same crossing count).
+
+    ./soft field_center.txt 0.03 5000 free 1 12      # 12a = 72 um film
+
+Flatness by height above the nail, 12a film, 5000 sliding flakes, nail centre:
+
+| loading | after hold 1: 0-2a / middle / 10-12a | end: all bands | end: mean |
+|---|---|---|---|
+| 0.1% (walls only) | 0.558 / 0.49-0.50 / 0.546 | 0.999-1.000 | 1.000 |
+| 3% | 0.564 / 0.49 / 0.560 | 0.995-1.000 | 0.998 |
+| 10% | 0.609 / 0.46-0.52 / 0.594 | 0.988-0.997 | 0.994 |
+
+Reading: the walls do not stop alignment at the nail centre. Steeply tilted flakes cannot sit within one radius of a wall, so the wall layers hold fewer, flatter flakes (0.1%: 549 flakes in 0-2a vs about 950 per middle band) and start ahead; by the end every band is flat. This is expected here because the target orientation at the centre (n along B0 x B90) is parallel to the nail, which a wall never blocks. Off-centre texels, where the target is tilted, are the case where a wall could matter; that needs the wall tilted relative to the box (the code now refuses a nail normal that is not along z).
