@@ -185,3 +185,21 @@ Flatness by height above the nail, 12a film, 5000 sliding flakes, nail centre:
 | 10% | 0.609 / 0.46-0.52 / 0.594 | 0.988-0.997 | 0.994 |
 
 Reading: the walls do not stop alignment at the nail centre. Steeply tilted flakes cannot sit within one radius of a wall, so the wall layers hold fewer, flatter flakes (0.1%: 549 flakes in 0-2a vs about 950 per middle band) and start ahead; by the end every band is flat. This is expected here because the target orientation at the centre (n along B0 x B90) is parallel to the nail, which a wall never blocks. Off-centre texels, where the target is tilted, are the case where a wall could matter; that needs the wall tilted relative to the box (the code now refuses a nail normal that is not along z).
+
+## Across the nail (Oct 27)
+
+`soft.c` now rotates the fields so the local nail normal is z (Rodrigues; the stored normal is renormalised first), so wall runs work at any texel. `c/scan_line.py` runs, per texel: no contact, walls only (0.1%), and 3% and 10% with walls (12a film, 5000 sliding flakes); results in `c/scan_x.csv`. Seven texels from the centre (3152) to where the target orientation stands on edge (3128); the map is symmetric about the centre.
+
+    python scan_line.py scan_x.csv 3152 3148 3144 3140 3136 3132 3128
+
+| texel | geometric limit | end: none / walls / 3% / 10% | after hold 1: none / 10% |
+|---|---|---|---|
+| 3152 (centre) | 1.000 | 1.000 / 1.000 / 0.998 / 0.994 | 0.499 / 0.521 |
+| 3148 | 0.919 | 0.919 / 0.919 / 0.917 / 0.916 | 0.457 / 0.484 |
+| 3144 | 0.708 | 0.708 / 0.708 / 0.706 / 0.707 | 0.351 / 0.381 |
+| 3140 | 0.442 | 0.442 / 0.442 / 0.441 / 0.442 | 0.219 / 0.244 |
+| 3136 | 0.203 | 0.203 / 0.203 / 0.203 / 0.203 | 0.100 / 0.122 |
+| 3132 | 0.048 | 0.048 / 0.048 / 0.049 / 0.049 | 0.024 / 0.045 |
+| 3128 | 0.000 | 0.000 / 0.000 / 0.001 / 0.001 | 0.000 / 0.021 |
+
+Reading: after six switching cycles every texel sits on its geometric limit (n along B0 x B90) to within 0.006, with or without contact and walls, nail band included. So in this model the converged bead shape is set by field geometry alone. Contact shows up only in the transient: after the first hold, 10% loading raises flatness by 0.02 to 0.03 at every texel (crowding pushes flakes towards a common plane). If contact matters for real nails, it is in short or single holds, not after full switching.

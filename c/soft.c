@@ -26,7 +26,8 @@
  * modes: ideal (no contact), fixed (positions frozen, contacts resolved by rotation only),
  *        free (contacts resolved by rotation and translation).
  * Box: a periodic cube by default.  With a film thickness Lz (in units of A) the box is periodic in x and y
- * and bounded by two flat walls, the nail at z = 0 and the film top at z = Lz (the nail normal must be z).
+ * and bounded by two flat walls, the nail at z = 0 and the film top at z = Lz; the fields are first rotated
+ * so that the local nail normal is z.
  * A flake keeps its lowest (highest) rim point H/2 from a wall; walls take part in the projection sweeps
  * but do not move, so the flake takes the whole correction.  Flatness is then also reported by height.
  *
@@ -354,7 +355,16 @@ int main(int argc, char **argv) {
     double Lz = argc > 6 ? atof(argv[6]) : 0;
     wall = Lz > 0;
     if (wall) {
-        if (fabs(Nn[2]) < 0.999) { fprintf(stderr, "wall runs need the nail normal along z (got %g %g %g)\n", Nn[0], Nn[1], Nn[2]); return 1; }
+        /* rotate the fields so that the local nail normal is z (Rodrigues: R u = u + v x u + v x (v x u) / (1 + c)) */
+        unit(Nn);
+        double z[3] = {0, 0, 1}, v[3], c = dot(Nn, z), *vec[3] = {B0, B90, Nn};
+        if (c < -0.999) { fprintf(stderr, "nail normal points along -z\n"); return 1; }
+        cross(Nn, z, v);
+        for (int m = 0; m < 3; m++) {
+            double *u = vec[m], vu[3], vvu[3];
+            cross(v, u, vu); cross(v, vu, vvu);
+            for (int k = 0; k < 3; k++) u[k] += vu[k] + vvu[k] / (1 + c);
+        }
         Lb[0] = Lb[1] = sqrt(N * M_PI * A * A * H / (phi * Lz)); Lb[2] = Lz;
     } else Lb[0] = Lb[1] = Lb[2] = cbrt(N * M_PI * A * A * H / phi);
     for (int s = 0; s < NSAMP; s++) { cs_tab[s] = cos(2 * M_PI * s / NSAMP); sn_tab[s] = sin(2 * M_PI * s / NSAMP); }

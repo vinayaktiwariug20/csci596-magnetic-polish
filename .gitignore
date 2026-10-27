@@ -7,3 +7,4 @@ c/soft_dt*
 c/dynamics
 c/dynamics_dt*
 c/contact
+c/field_[0-9]*.txt
