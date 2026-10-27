@@ -136,3 +136,22 @@ Reading: the walls do not stop alignment at the nail centre. Steeply tilted flak
 | 3128 | 0.000 | 0.000 / 0.000 / 0.001 / 0.001 | 0.000 / 0.021 |
 
 Reading: after six switching cycles every texel sits on its geometric limit (n along B0 x B90) to within 0.006, with or without contact and walls, nail band included. So in this model the converged bead shape is set by field geometry alone. Contact shows up only in the transient: after the first hold, 10% loading raises flatness by 0.02 to 0.03 at every texel (crowding pushes flakes towards a common plane). If contact matters for real nails, it is in short or single holds, not after full switching.
+
+## Flakes' own magnetic field: estimate (Oct 27)
+
+`c/dipole_estimate.py` (no dynamics). Linear flakes, chi_in 4 / chi_perp 1 (model dchi = 3) and a stronger bracket chi_in 8.
+
+1. Film field. The magnetised layer is a thin sheet, so inside it the field component along the nail normal drops by 1/(1 + chi_NN). This tilts B0 and B90 toward the nail and moves the geometric limit. End flatness, chi_in 4 (8):
+
+| texel | 0% | 1% | 3% | 10% |
+|---|---|---|---|---|
+| 3152 | 1.000 | 1.000 | 1.000 | 1.000 |
+| 3148 | 0.919 | 0.921 | 0.924 (0.925) | 0.934 (0.937) |
+| 3144 | 0.708 | 0.715 (0.720) | 0.729 (0.740) | 0.768 (0.790) |
+| 3140 | 0.442 | 0.455 (0.465) | 0.479 (0.504) | 0.547 (0.601) |
+| 3136 | 0.203 | 0.214 (0.224) | 0.235 (0.263) | 0.303 (0.375) |
+| 3132 | 0.048 | 0.052 (0.055) | 0.059 (0.071) | 0.087 (0.129) |
+
+2. Neighbour field. Non-overlapping flakes at the centre texel, each a rim of magnetic charge, cutoff 6a. Typical normal field from neighbours relative to |B| (median / 90th percentile): 1% 0.01-0.02 / 0.05-0.09, 3% 0.03-0.06 / 0.08-0.15, 10% 0.05-0.11 / 0.14-0.28. Flatness loss if each flake tilts by that much: at most 0.007 (chi_in 4) and 0.025 (chi_in 8) at 10%.
+
+Reading: the largest effect is the film field, a first-order shift of the bead off-centre at 3-10% loading (0.20 to 0.30-0.38 at texel 3136). It needs no pair sums: it is a correction to the field. Neighbour fields tilt flakes by a few degrees, comparable to the contact transient. Not yet checked: dipole forces moving flakes into chains. Rough drift at 10% is about one radius over the full 60 s protocol, independent of viscosity (rotation and drift both scale as 1/eta).
