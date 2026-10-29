@@ -355,7 +355,7 @@ static void flat_profile(const double *Nn, const char *label) {
 #define NRIM 16
 #define DCHI 3.0                   /* the dchi behind kappa0 in center_field.py */
 #ifndef DIPEVERY
-#define DIPEVERY 10                /* recompute flake-flake rates every DIPEVERY steps (0.1 s) */
+#define DIPEVERY 2                 /* recompute flake-flake rates every DIPEVERY steps (0.02 s; 10 underestimates tilt by 13%) */
 #endif
 static double *wdip, *vdip, rcut;
 

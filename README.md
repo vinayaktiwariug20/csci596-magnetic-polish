@@ -230,7 +230,7 @@ Reading: with sliding contact and a converged step, contact does not keep flakes
 
 ## Forces between flakes: preliminary (Oct 28)
 
-Argument 11 turns on magnetic forces and torques between flakes within a cutoff (centre distance, in a). Each flake is magnetised in its own plane, mu0 M = chi_in (B - (B.n) n), which for a thin disc puts magnetic charge on its rim; the rim is sampled with 16 charges, softened by H/2. Forces and torques become velocities and spin through the disc mobilities (v = kappa S (F - (F.n) n / 3), omega = kappa S T, S = 1/(pi H dchi)), added to the contact model. The rates are refreshed every 10 steps (0.1 s, `-DDIPEVERY`). Checked against point dipoles at 10a (within 3%). The film field (argument 7) stays on as the uniform part of the flakes' own field, so the contribution of near neighbours is partly counted twice; to be sorted out.
+Argument 11 turns on magnetic forces and torques between flakes within a cutoff (centre distance, in a). Each flake is magnetised in its own plane, mu0 M = chi_in (B - (B.n) n), which for a thin disc puts magnetic charge on its rim; the rim is sampled with 16 charges, softened by H/2. Forces and torques become velocities and spin through the disc mobilities (v = kappa S (F - (F.n) n / 3), omega = kappa S T, S = 1/(pi H dchi)), added to the contact model. The rates are refreshed every 2 steps (0.02 s, `-DDIPEVERY`; the runs in the table below up to the convergence rows used 10). Checked against point dipoles at 10a (within 3%). The film field (argument 7) stays on as the uniform part of the flakes' own field, so the contribution of near neighbours is partly counted twice; to be sorted out.
 
 Setup: centre of the nail (`field_3152.txt`), 2000 flakes, 12a film, chi_in 4, one static 5 s hold, random start unless noted. "Miss" is the angle between the flake plane and the applied field at the end (0 = fully aligned); "pairs along B" is <(d.b)^2> over pairs with centres closer than 2.2a (1/3 = no preferred direction, 1 = all pairs in line with the field, i.e. chains).
 
@@ -239,6 +239,9 @@ Setup: centre of the nail (`field_3152.txt`), 2000 flakes, 12a film, chi_in 4, o
 | 10%, no forces | 0.20 / 2.62 | 0.340 -> 0.340 | 54 s |
 | 10%, forces, cutoff 4a | 3.78 / 5.86 | 0.340 -> 0.383 | 187 s |
 | same, rates every 5 steps | 4.25 / 6.47 | 0.340 -> 0.384 | 332 s |
+| same, rates every 2 steps (new default) | 4.38 / 6.54 | 0.340 -> 0.383 | 247 s (8 threads) |
+| same, rates every step | 4.34 / 6.64 | 0.340 -> 0.382 | 275 s (8 threads) |
+| chi_in 8, no forces / forces (every 2 steps) | 0.20 / 2.62 vs 12.77 / 17.53 | 0.340 -> 0.389 | 52 / 721 s |
 | same, dt 0.005 | 3.79 / 5.77 | 0.340 -> 0.382 | 303 s |
 | same, cutoff 6a | 3.95 / 5.92 | 0.340 -> 0.381 | 283 s |
 | seed 2, no forces / forces | 0.07 / 0.60 vs 3.89 / 5.56 | 0.342 -> 0.385 | 66 / 295 s |
@@ -248,9 +251,9 @@ Setup: centre of the nail (`field_3152.txt`), 2000 flakes, 12a film, chi_in 4, o
 
 Reading:
 - Forces between flakes leave nearly every flake tilted a few degrees off the field (mean close to rms, so a broad shift rather than a few stuck flakes). Without forces the miss is at most 0.2 deg. Independent of the start (brushed or random) and of the seed, insensitive to dt and cutoff.
-- Not yet converged in the refresh interval: refreshing every 5 instead of 10 steps raises the mean miss from 3.8 to 4.25 deg. Needs a run at every 1-2 steps before the numbers are quoted.
+- Refresh interval: converged at every 2 steps (mean miss 4.38 deg vs 4.34 at every step); every 10 steps underestimates it by about 13%, so the other rows (10-step refresh) are low by about that much. The comparisons between them stand.
 - The effect grows with loading (2.0, 3.2, 3.8 deg at 1, 3, 10%) but smoothly, with no threshold near 5 vol% as in Pereira et al.; most of it is already there at 1%.
 - Close pairs line up along the field, most strongly at low loading (0.64 at 1%), the start of chains as seen by Le Ferrand and Arrieta (2022) at 1 vol%. At high loading neighbours are too crowded to rearrange in 5 s.
-- The size of the effect scales with chi_in, which is not measured for cosmetic flakes (4 is a guess). Real flakes are roughly square (Pereira et al. Figs. 9, 11); corners concentrate rim charge, so near-field forces may be stronger than for discs.
-- Next: refresh-interval convergence, chi_in dependence, longer holds (do chains keep growing?), then hand `dipole_rates` to the MPI and scaling work.
+- The size of the effect depends strongly on chi_in, which is not measured for cosmetic flakes: doubling it from 4 to 8 triples the mean miss (4.4 to 12.8 deg; pair forces scale as chi_in^2, the aligning torque does not). At chi_in 8 the spread is large enough to matter for the reflection lobe. Pinning down chi_in (or a range) is now the main physics question. Real flakes are roughly square (Pereira et al. Figs. 9, 11); corners concentrate rim charge, so near-field forces may be stronger than for discs.
+- Next: a chi_in range from flake composition, loading series at the new refresh interval, longer holds (do chains keep growing?), then hand `dipole_rates` to the MPI and scaling work.
 
