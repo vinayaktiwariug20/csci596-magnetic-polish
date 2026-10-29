@@ -216,3 +216,12 @@ Static sweep with the limit (centre, film 12a, 5000 flakes, 5 s, random start), 
 Switching protocol check (3%, centre, film 12a): end 1.000, no crossings, 60 s on 8 threads (41 s before).
 
 Reading: with sliding contact and a converged step, contact does not keep flakes from aligning in a static field at any loading up to 13%. The loading effect measured by Pereira et al. is not reproduced by contact.
+
+## Flake state output (Oct 28)
+
+`soft` takes the flake state file as argument 10 and writes it at the end of the run: `#` header lines (run settings, box, B0, B90 and nail normal in the simulation frame; with walls the frame is rotated so the local nail normal is +z), a column line, then one row per flake: `x,y,z,nx,ny,nz,kappa` (lengths in flake radii a = 6 um, thickness 0.1 a).
+
+    ./soft field_3140.txt 0.03 2000 ideal 1 12 0 0 -1 flakes_3140.csv    # switching protocol, writes the file
+    python read_flakes.py flakes_3140.csv                                # summary + flakes_3140.png
+
+`read_flakes.py` has `load(path)` (header dict and an N x 7 array) for rendering or analysis, and a quick-look figure: flakes from above as projected ellipses coloured by tilt, and the normals in an equal-area projection about the nail normal. The spread of that normal cloud is what sets the width of the reflection lobe (Pereira et al. 2017, section 6).

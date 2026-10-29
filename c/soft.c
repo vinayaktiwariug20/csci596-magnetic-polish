@@ -344,8 +344,26 @@ static void flat_profile(const double *Nn, const char *label) {
     printf("\n");
 }
 
+/* final flake state as CSV: '#' header lines (run, box, fields in the simulation frame), then one row per flake */
+static int write_flakes(const char *path, const char *field, double phi, double Lz, double chi_in, double tstatic,
+                        const double *B0, const double *B90, const double *Nn) {
+    FILE *f = fopen(path, "w");
+    if (!f) return 0;
+    fprintf(f, "# soft.c flake state at end of run; lengths in flake radii a (a = 6 um, thickness H = %g a)\n", H);
+    fprintf(f, "# field_file %s  phi %g  N %d  mode %d  film %g  chi_in %g  static_hold_s %g\n", field, phi, N, mode, Lz, chi_in, tstatic);
+    fprintf(f, "# box %.6f %.6f %.6f  (x, y periodic; %s)\n", Lb[0], Lb[1], Lb[2], wall ? "nail at z = 0, film top at z = Lz" : "z periodic");
+    fprintf(f, "# frame: %s\n", wall ? "rotated so the local nail normal is +z" : "nail frame of the field file");
+    fprintf(f, "# B0_T %.6e %.6e %.6e\n# B90_T %.6e %.6e %.6e\n# nail_normal %.6f %.6f %.6f\n",
+            B0[0], B0[1], B0[2], B90[0], B90[1], B90[2], Nn[0], Nn[1], Nn[2]);
+    fprintf(f, "x,y,z,nx,ny,nz,kappa\n");
+    for (int i = 0; i < N; i++)
+        fprintf(f, "%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.4f\n", pos[3 * i], pos[3 * i + 1], pos[3 * i + 2],
+                x[3 * i], x[3 * i + 1], x[3 * i + 2], kap[i]);
+    return fclose(f) == 0;
+}
+
 int main(int argc, char **argv) {
-    if (argc < 6) { fprintf(stderr, "usage: %s field_center.txt phi N ideal|fixed|free seed [film_thickness_in_a [chi_in [static_hold_s [start_spread_deg]]]]\n", argv[0]); return 1; }
+    if (argc < 6) { fprintf(stderr, "usage: %s field_center.txt phi N ideal|fixed|free seed [film_thickness_in_a [chi_in [static_hold_s [start_spread_deg [out.csv]]]]]\n", argv[0]); return 1; }
     double B0[3], B90[3], Nn[3], kappa0;
     FILE *f = fopen(argv[1], "r");
     if (!f || fscanf(f, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf", B0, B0 + 1, B0 + 2, B90, B90 + 1, B90 + 2, Nn, Nn + 1, Nn + 2, &kappa0) != 10) {
@@ -482,6 +500,7 @@ int main(int argc, char **argv) {
         disp += sqrt(r2);
     }
     if (wall) flat_profile(Nn, "at end      ");
+    if (argc > 10 && !write_flakes(argv[10], argv[1], phi, Lz, chi_in, tstatic, B0, B90, Nn)) { fprintf(stderr, "cannot write %s\n", argv[10]); return 1; }
     if (tstatic > 0) {
         /* static field: how far each flake's plane misses B0 (angle between n and the plane normal to B0) */
         double b[3] = {B0[0], B0[1], B0[2]}, s2 = 0, s1 = 0;
