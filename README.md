@@ -204,3 +204,15 @@ Reading: in this model, loading moves the bead through the film field alone; con
 The random-start misalignment does not relax with longer holds (5, 15, 30 s identical), but it is a numerical artifact: about 7% of flakes per step rotate into a neighbour in one step, are sent back by the crossing backstop and never feel a contact push. At 10%: dt 0.01 / 0.005 / 0.0025 gives reverted flake-steps 7.1 / 3.0 / 1.5%, rms miss 11.4 / 7.6 / 5.7 deg, mean miss 2.78 / 1.24 / 0.71 deg (heading to 0). First-hold flatness with contact 0.521 / 0.530 / 0.533 against 0.533 without contact.
 
 Reading: with a converged time step, sliding contact changes neither the first hold nor the end state. The switching results above were already dt-converged at the end (0.998 vs 1.000), so they stand. Contact therefore cannot explain the loading effect Pereira et al. measured, which leaves interactions between flakes (magnetic forces, chaining) as the candidate. For anything near contact, use dt 0.0025 or smaller, or add a per-step rotation limit (the rim of a flake should move less than about H/4 per step); this applies to the flake-force work too.
+
+## Rotation limit with contact (Oct 28)
+
+With contact, `soft` now splits each step into substeps so that no flake turns by more than MAXROT = 0.05 H/a (the rim moves at most H/20) per substep; the bound uses each flake's current magnetic rotation rate. Without contact nothing changes. Override at compile time with `-DMAXROT=(0.1*H/A)`.
+
+Convergence at 10%, static 5 s, random start (rms / mean angle by which flake planes miss B0): no limit 11.4 / 2.78 deg; H/4 4.7 / 0.51; H/10 3.0 / 0.25; H/20 1.95 / 0.14. Both fall roughly in proportion to the limit, so what remains is still numerical and heads to 0.
+
+Static sweep with the limit (centre, film 12a, 5000 flakes, 5 s, random start), rms miss: 1% 0.6, 3% 0.03, 5% 1.5, 8% 1.3, 10% 1.9, 13% 1.9 deg (mean at most 0.19 deg). First-hold flatness 0.51 to 0.54, as without contact.
+
+Switching protocol check (3%, centre, film 12a): end 1.000, no crossings, 60 s on 8 threads (41 s before).
+
+Reading: with sliding contact and a converged step, contact does not keep flakes from aligning in a static field at any loading up to 13%. The loading effect measured by Pereira et al. is not reproduced by contact.

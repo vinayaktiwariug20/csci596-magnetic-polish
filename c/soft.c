@@ -55,6 +55,9 @@
 #define MAXSWEEP 20
 #define TOL 0.02
 #define RELAX 0.7
+#ifndef MAXROT
+#define MAXROT (0.05 * H / A)   /* largest turn per substep with contact: the rim moves at most H/20 */
+#endif
 
 static unsigned long long rs;
 static double urand(void) { rs ^= rs << 13; rs ^= rs >> 7; rs ^= rs << 17; return (rs >> 11) * (1.0 / 9007199254740992.0); }
@@ -418,7 +421,7 @@ int main(int argc, char **argv) {
     memcpy(pos0, pos, sizeof(double) * 3 * N);
 
     double t0 = 0, t1 = 0, fs = mean_flat(Nn), f1 = 0, worst = 0;
-    long long ncont = 0, ncross = 0, nsweeps = 0, unconverged = 0, nsteps = 0, nrevert = 0;
+    long long ncont = 0, ncross = 0, nsweeps = 0, unconverged = 0, nsteps = 0, nrevert = 0, nsub = 0;
 #ifdef _OPENMP
     t0 = omp_get_wtime();
 #endif
@@ -435,20 +438,36 @@ int main(int argc, char **argv) {
                     for (int i = 0; i < N; i++) { double c2 = x[3 * i + 2] * x[3 * i + 2]; sz += chi_in * (1 - c2) + CHI_PERP * c2; }
                     B[2] = Bext[2] / (1 + phi * sz / N);
                 }
-                if (mode) { memcpy(xold, x, sizeof(double) * 3 * N); memcpy(posold, pos, sizeof(double) * 3 * N); }
-                #pragma omp parallel for schedule(static)
-                for (int i = 0; i < N; i++) rk4(x + 3 * i, B, kap[i], DT);
-                if (!mode) continue;
-                int it;
-                double mp = 0;
-                for (it = 0; it < MAXSWEEP; it++) {
-                    if (mode == 2 || it == 0) build_cells();
-                    mp = sweep(&ncont, &ncross);
-                    nsweeps++;
-                    if (mp < TOL * H) break;
+                /* with contact, split the step so that no flake turns by more than MAXROT per substep: a larger turn
+                   can carry a rim through a neighbour in one go, which the crossing backstop then undoes every step */
+                int m = 1;
+                if (mode) {
+                    double rmax = 0;
+                    #pragma omp parallel for reduction(max:rmax)
+                    for (int i = 0; i < N; i++) {
+                        double b = dot(B, x + 3 * i), r = kap[i] * fabs(b) * sqrt(fmax(0.0, dot(B, B) - b * b));
+                        if (r > rmax) rmax = r;
+                    }
+                    m = (int)ceil(rmax * DT / MAXROT);
+                    if (m < 1) m = 1;
                 }
-                if (it == MAXSWEEP) { unconverged++; if (mp > worst) worst = mp; }
-                nrevert += revert_crossings();
+                nsub += m;
+                for (int sub = 0; sub < m; sub++) {
+                    if (mode) { memcpy(xold, x, sizeof(double) * 3 * N); memcpy(posold, pos, sizeof(double) * 3 * N); }
+                    #pragma omp parallel for schedule(static)
+                    for (int i = 0; i < N; i++) rk4(x + 3 * i, B, kap[i], DT / m);
+                    if (!mode) continue;
+                    int it;
+                    double mp = 0;
+                    for (it = 0; it < MAXSWEEP; it++) {
+                        if (mode == 2 || it == 0) build_cells();
+                        mp = sweep(&ncont, &ncross);
+                        nsweeps++;
+                        if (mp < TOL * H) break;
+                    }
+                    if (it == MAXSWEEP) { unconverged++; if (mp > worst) worst = mp; }
+                    nrevert += revert_crossings();
+                }
             }
             if (cyc == 0 && ph == 0) { f1 = mean_flat(Nn); if (wall) flat_profile(Nn, "after hold 1"); }
         }
@@ -471,8 +490,8 @@ int main(int argc, char **argv) {
         printf("  static %gs, start spread %g deg: flake plane misses B by mean %.2f deg, rms %.2f deg\n",
                tstatic, spread0, s1 / N * 180 / M_PI, sqrt(s2 / N) * 180 / M_PI);
     }
-    printf("%-5s phi=%.2f N=%d dt=%g film=%ga chi_in=%g  flat: start %.3f  hold1 %.3f  end %.3f  sweeps/step %.1f  unconverged steps %lld (worst pen %.2fH)  "
-           "crossings seen %lld  reverted flake-steps %.3f%%  mean shift %.2fa  wall %.1f s\n",
-           argv[4], phi, N, DT, Lz, chi_in, fs, f1, mean_flat(Nn), (double)nsweeps / nsteps, unconverged, worst / H, ncross, 100.0 * nrevert / ((double)N * nsteps), disp / N, t1 - t0);
+    printf("%-5s phi=%.2f N=%d dt=%g film=%ga chi_in=%g  flat: start %.3f  hold1 %.3f  end %.3f  substeps/step %.2f  sweeps/substep %.1f  unconverged substeps %lld (worst pen %.2fH)  "
+           "crossings seen %lld  reverted flake-substeps %.3f%%  mean shift %.2fa  wall %.1f s\n",
+           argv[4], phi, N, DT, Lz, chi_in, fs, f1, mean_flat(Nn), (double)nsub / nsteps, (double)nsweeps / nsub, unconverged, worst / H, ncross, 100.0 * nrevert / ((double)N * nsub), disp / N, t1 - t0);
     return 0;
 }
