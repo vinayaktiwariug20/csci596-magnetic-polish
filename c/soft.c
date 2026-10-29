@@ -344,6 +344,99 @@ static void flat_profile(const double *Nn, const char *label) {
     printf("\n");
 }
 
+/* ---- magnetic forces between flakes (preliminary, serial-friendly; see README "Flake-flake magnetic forces") ----
+   Each flake is magnetised in its plane along the in-plane part of the field, mu0 M = chi_in (B - (B.n) n). A thin,
+   uniformly magnetised disc acts as magnetic charge on its rim: NRIM charges q_k = (mu0 M . r_k) H dtheta (lengths
+   in a). The field of the neighbours' rim charges (softened by H/2, cutoff RCUT between centres) acts on the
+   flake's own rim charges: force F = sum q b, torque T = sum r x q b. Overdamped motion with the same drag as the
+   rest of the code, written with the flake's kappa (kappa = 3 pi h dchi / (32 mu0 eta a)):
+   omega = kappa S T, v = kappa S (F - (F.n) n / 3), S = 1 / (pi H dchi). The out-of-plane moment (chi_perp) and the
+   moments induced by the neighbours' fields are left out (first order in phi chi). */
+#define NRIM 16
+#define DCHI 3.0                   /* the dchi behind kappa0 in center_field.py */
+#ifndef DIPEVERY
+#define DIPEVERY 10                /* recompute flake-flake rates every DIPEVERY steps (0.1 s) */
+#endif
+static double *wdip, *vdip, rcut;
+
+static void dipole_rates(const double *B, double chi_in) {
+    int nr[3];
+    for (int k = 0; k < 3; k++) nr[k] = (int)ceil(rcut / csv[k]);
+    const double S = 1.0 / (M_PI * H * DCHI), eps2 = 0.25 * H * H, dth = 2 * M_PI / NRIM;
+    #pragma omp parallel for schedule(dynamic, 32)
+    for (int i = 0; i < N; i++) {
+        double *ni = x + 3 * i, ui[3], vi[3], ri[NRIM][3], qi[NRIM], F[3] = {0, 0, 0}, T[3] = {0, 0, 0};
+        double bi = dot(B, ni), Mi[3];
+        for (int k = 0; k < 3; k++) Mi[k] = chi_in * (B[k] - bi * ni[k]);
+        basis(ni, ui, vi);
+        for (int s = 0; s < NRIM; s++) {
+            double th = (s + 0.5) * dth;
+            for (int k = 0; k < 3; k++) ri[s][k] = A * (cos(th) * ui[k] + sin(th) * vi[k]);
+            qi[s] = dot(Mi, ri[s]) / A * H * A * dth;
+        }
+        int c[3];
+        cell_of(pos + 3 * i, c);
+        for (int ox = -nr[0]; ox <= nr[0]; ox++) for (int oy = -nr[1]; oy <= nr[1]; oy++) for (int oz = -nr[2]; oz <= nr[2]; oz++) {
+            int nb = nb_cell(c, ox, oy, oz);
+            if (nb < 0) continue;
+            for (int j = head[nb]; j >= 0; j = next[j]) {
+                if (j == i) continue;
+                double d[3], r2 = 0, *nj = x + 3 * j;
+                for (int k = 0; k < 3; k++) { d[k] = mi(pos[3 * j + k] - pos[3 * i + k], k); r2 += d[k] * d[k]; }
+                if (r2 >= rcut * rcut) continue;
+                double uj[3], vj[3], bj = dot(B, nj), Mj[3];
+                for (int k = 0; k < 3; k++) Mj[k] = chi_in * (B[k] - bj * nj[k]);
+                basis(nj, uj, vj);
+                for (int t = 0; t < NRIM; t++) {
+                    double th = (t + 0.5) * dth, rj[3];
+                    for (int k = 0; k < 3; k++) rj[k] = d[k] + A * (cos(th) * uj[k] + sin(th) * vj[k]);
+                    double qj = (dot(Mj, rj) - dot(Mj, d)) * H * dth;          /* (mu0 Mj . rim direction) H a dtheta */
+                    for (int s = 0; s < NRIM; s++) {
+                        double e[3], e2 = eps2;
+                        for (int k = 0; k < 3; k++) { e[k] = ri[s][k] - rj[k]; e2 += e[k] * e[k]; }
+                        double g = qi[s] * qj / (4 * M_PI * e2 * sqrt(e2)), f[3];
+                        for (int k = 0; k < 3; k++) { f[k] = g * e[k]; F[k] += f[k]; }
+                        double tq[3];
+                        cross(ri[s], f, tq);
+                        for (int k = 0; k < 3; k++) T[k] += tq[k];
+                    }
+                }
+            }
+        }
+        double fn = dot(F, ni);
+        for (int k = 0; k < 3; k++) {
+            wdip[3 * i + k] = kap[i] * S * T[k];
+            vdip[3 * i + k] = kap[i] * S * (F[k] - fn * ni[k] / 3);
+        }
+    }
+}
+
+/* pairs closer than 2.2 a (centres): count per flake, and <(d.b)^2> with b the in-plane field direction
+   (1/3 for no preferred direction; towards 1 when close pairs line up along the field, as in chains) */
+static void close_pairs(const double *B, double *per_flake, double *along) {
+    long long np = 0;
+    double s = 0, b[3] = {B[0], B[1], B[2]};
+    unit(b);
+    #pragma omp parallel for schedule(dynamic, 64) reduction(+:np, s)
+    for (int i = 0; i < N; i++) {
+        int c[3];
+        cell_of(pos + 3 * i, c);
+        for (int ox = -1; ox <= 1; ox++) for (int oy = -1; oy <= 1; oy++) for (int oz = -1; oz <= 1; oz++) {
+            int nb = nb_cell(c, ox, oy, oz);
+            if (nb < 0) continue;
+            for (int j = head[nb]; j >= 0; j = next[j]) {
+                if (j == i) continue;
+                double d[3], r2 = 0;
+                for (int k = 0; k < 3; k++) { d[k] = mi(pos[3 * j + k] - pos[3 * i + k], k); r2 += d[k] * d[k]; }
+                if (r2 >= 2.2 * 2.2 * A * A) continue;
+                double db = dot(d, b);
+                np++; s += db * db / r2;
+            }
+        }
+    }
+    *per_flake = (double)np / N; *along = np ? s / np : 0;
+}
+
 /* final flake state as CSV: '#' header lines (run, box, fields in the simulation frame), then one row per flake */
 static int write_flakes(const char *path, const char *field, double phi, double Lz, double chi_in, double tstatic,
                         const double *B0, const double *B90, const double *Nn) {
@@ -363,7 +456,7 @@ static int write_flakes(const char *path, const char *field, double phi, double 
 }
 
 int main(int argc, char **argv) {
-    if (argc < 6) { fprintf(stderr, "usage: %s field_center.txt phi N ideal|fixed|free seed [film_thickness_in_a [chi_in [static_hold_s [start_spread_deg [out.csv]]]]]\n", argv[0]); return 1; }
+    if (argc < 6) { fprintf(stderr, "usage: %s field_center.txt phi N ideal|fixed|free seed [film_thickness_in_a [chi_in [static_hold_s [start_spread_deg [out.csv|- [cutoff_a]]]]]]\n", argv[0]); return 1; }
     double B0[3], B90[3], Nn[3], kappa0;
     FILE *f = fopen(argv[1], "r");
     if (!f || fscanf(f, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf", B0, B0 + 1, B0 + 2, B90, B90 + 1, B90 + 2, Nn, Nn + 1, Nn + 2, &kappa0) != 10) {
@@ -437,6 +530,17 @@ int main(int argc, char **argv) {
     free(head); head = malloc(sizeof(int) * ncell);
     double *pos0 = malloc(sizeof(double) * 3 * N);
     memcpy(pos0, pos, sizeof(double) * 3 * N);
+    /* magnetic forces between flakes: argument 11 is the cutoff in a (0 = off); strength from chi_in */
+    rcut = argc > 11 ? atof(argv[11]) : 0;
+    if (rcut > 0) {
+        if (mode != 2 || chi_in <= 0) { fprintf(stderr, "flake-flake forces need mode free and chi_in > 0\n"); return 1; }
+        for (int k = 0; k < 3; k++)
+            if (!(wall && k == 2) && 2 * (int)ceil(rcut / csv[k]) + 1 > ncv[k]) { fprintf(stderr, "box too small for cutoff %g\n", rcut); return 1; }
+        wdip = calloc(3 * N, sizeof(double)); vdip = calloc(3 * N, sizeof(double));
+    }
+    double cp0, ca0, cp1, ca1;
+    build_cells();
+    close_pairs(B0, &cp0, &ca0);
 
     double t0 = 0, t1 = 0, fs = mean_flat(Nn), f1 = 0, worst = 0;
     long long ncont = 0, ncross = 0, nsweeps = 0, unconverged = 0, nsteps = 0, nrevert = 0, nsub = 0;
@@ -458,12 +562,14 @@ int main(int argc, char **argv) {
                 }
                 /* with contact, split the step so that no flake turns by more than MAXROT per substep: a larger turn
                    can carry a rim through a neighbour in one go, which the crossing backstop then undoes every step */
+                if (rcut > 0 && nsteps % DIPEVERY == 0) { build_cells(); dipole_rates(B, chi_in); }
                 int m = 1;
                 if (mode) {
                     double rmax = 0;
                     #pragma omp parallel for reduction(max:rmax)
                     for (int i = 0; i < N; i++) {
                         double b = dot(B, x + 3 * i), r = kap[i] * fabs(b) * sqrt(fmax(0.0, dot(B, B) - b * b));
+                        if (rcut > 0) { double wn[3]; cross(wdip + 3 * i, x + 3 * i, wn); r += sqrt(dot(wn, wn)); }   /* spin about n does nothing */
                         if (r > rmax) rmax = r;
                     }
                     m = (int)ceil(rmax * DT / MAXROT);
@@ -474,6 +580,20 @@ int main(int argc, char **argv) {
                     if (mode) { memcpy(xold, x, sizeof(double) * 3 * N); memcpy(posold, pos, sizeof(double) * 3 * N); }
                     #pragma omp parallel for schedule(static)
                     for (int i = 0; i < N; i++) rk4(x + 3 * i, B, kap[i], DT / m);
+                    if (rcut > 0) {
+                        /* flake-flake magnetic turn and drift (rates from the last dipole_rates call) */
+                        #pragma omp parallel for schedule(static)
+                        for (int i = 0; i < N; i++) {
+                            double *n = x + 3 * i, wn[3];
+                            cross(wdip + 3 * i, n, wn);
+                            for (int k = 0; k < 3; k++) n[k] += wn[k] * DT / m;
+                            unit(n);
+                            for (int k = 0; k < 3; k++) {
+                                double y = pos[3 * i + k] + vdip[3 * i + k] * DT / m;
+                                pos[3 * i + k] = (wall && k == 2) ? y : y - Lb[k] * floor(y / Lb[k]);
+                            }
+                        }
+                    }
                     if (!mode) continue;
                     int it;
                     double mp = 0;
@@ -500,7 +620,11 @@ int main(int argc, char **argv) {
         disp += sqrt(r2);
     }
     if (wall) flat_profile(Nn, "at end      ");
-    if (argc > 10 && !write_flakes(argv[10], argv[1], phi, Lz, chi_in, tstatic, B0, B90, Nn)) { fprintf(stderr, "cannot write %s\n", argv[10]); return 1; }
+    build_cells();
+    close_pairs(B0, &cp1, &ca1);
+    printf("  close pairs (centres < 2.2a) per flake: start %.3f end %.3f; alignment with B0 <(d.b)^2>: start %.3f end %.3f (1/3 = none)\n",
+           cp0, cp1, ca0, ca1);
+    if (argc > 10 && argv[10][0] != '-' && !write_flakes(argv[10], argv[1], phi, Lz, chi_in, tstatic, B0, B90, Nn)) { fprintf(stderr, "cannot write %s\n", argv[10]); return 1; }
     if (tstatic > 0) {
         /* static field: how far each flake's plane misses B0 (angle between n and the plane normal to B0) */
         double b[3] = {B0[0], B0[1], B0[2]}, s2 = 0, s1 = 0;

@@ -44,13 +44,15 @@ Build and run the main model (gcc with OpenMP; on Windows use Git Bash or MSYS2,
 
 Arguments: field file, volume fraction, number of flakes, `ideal` (no contact) / `fixed` / `free` (sliding
 contact), seed, film thickness in flake radii (0 = periodic cube), chi_in (film field, 0 = off), static hold in s
-(0 = 0/90 switching), start spread in degrees (-1 = random start). Lengths are in flake radii a = 6 um.
+(0 = 0/90 switching), start spread in degrees (-1 = random start), flake state file (`-` = none), flake-flake
+force cutoff in a (0 = off; needs `free` and chi_in > 0). Lengths are in flake radii a = 6 um.
 
 Where things live in `c/soft.c`:
-- `rk4` / `rhs`: magnetic torque on one flake (dn/dt = -kappa (B.n)(B - (B.n) n)). A field from other flakes
-  would be added to B here, per flake.
-- `build_cells`, `nb_cell`, `cell_of`: cell lists (cell side 2a + H). A dipole cutoff of a few a needs larger cells
-  or a second list; the same neighbour loop is what an MPI version splits across ranks (ghost layers, as in
+- `rk4` / `rhs`: magnetic torque on one flake (dn/dt = -kappa (B.n)(B - (B.n) n)).
+- `dipole_rates`: forces and torques between flakes (rim-charge model, preliminary version; this
+  is the loop to speed up and split across MPI ranks).
+- `build_cells`, `nb_cell`, `cell_of`: cell lists (cell side 2a + H); `dipole_rates` scans as many cells as the
+  cutoff needs. The same neighbour loop is what an MPI version splits across ranks (ghost layers, as in
   assignments 4 and 5).
 - `sweep`, `apply_push`, `mobility`: contact resolution (projection, Jacobi sweeps). Flake mobilities in
   `mobility` also convert a magnetic force or torque into motion.
@@ -225,3 +227,30 @@ Reading: with sliding contact and a converged step, contact does not keep flakes
     python read_flakes.py flakes_3140.csv                                # summary + flakes_3140.png
 
 `read_flakes.py` has `load(path)` (header dict and an N x 7 array) for rendering or analysis, and a quick-look figure: flakes from above as projected ellipses coloured by tilt, and the normals in an equal-area projection about the nail normal. The spread of that normal cloud is what sets the width of the reflection lobe (Pereira et al. 2017, section 6).
+
+## Forces between flakes: preliminary (Oct 28)
+
+Argument 11 turns on magnetic forces and torques between flakes within a cutoff (centre distance, in a). Each flake is magnetised in its own plane, mu0 M = chi_in (B - (B.n) n), which for a thin disc puts magnetic charge on its rim; the rim is sampled with 16 charges, softened by H/2. Forces and torques become velocities and spin through the disc mobilities (v = kappa S (F - (F.n) n / 3), omega = kappa S T, S = 1/(pi H dchi)), added to the contact model. The rates are refreshed every 10 steps (0.1 s, `-DDIPEVERY`). Checked against point dipoles at 10a (within 3%). The film field (argument 7) stays on as the uniform part of the flakes' own field, so the contribution of near neighbours is partly counted twice; to be sorted out.
+
+Setup: centre of the nail (`field_3152.txt`), 2000 flakes, 12a film, chi_in 4, one static 5 s hold, random start unless noted. "Miss" is the angle between the flake plane and the applied field at the end (0 = fully aligned); "pairs along B" is <(d.b)^2> over pairs with centres closer than 2.2a (1/3 = no preferred direction, 1 = all pairs in line with the field, i.e. chains).
+
+| run | miss mean / rms (deg) | pairs along B start -> end | wall (4-8 threads) |
+|---|---|---|---|
+| 10%, no forces | 0.20 / 2.62 | 0.340 -> 0.340 | 54 s |
+| 10%, forces, cutoff 4a | 3.78 / 5.86 | 0.340 -> 0.383 | 187 s |
+| same, rates every 5 steps | 4.25 / 6.47 | 0.340 -> 0.384 | 332 s |
+| same, dt 0.005 | 3.79 / 5.77 | 0.340 -> 0.382 | 303 s |
+| same, cutoff 6a | 3.95 / 5.92 | 0.340 -> 0.381 | 283 s |
+| seed 2, no forces / forces | 0.07 / 0.60 vs 3.89 / 5.56 | 0.342 -> 0.385 | 66 / 295 s |
+| 3%, no forces / forces | 0.01 / 0.29 vs 3.24 / 5.14 | 0.337 -> 0.484 | 17 / 122 s |
+| 1%, no forces / forces | 0.00 / 0.01 vs 1.98 / 3.86 | 0.341 -> 0.643 | 3 / 47 s |
+| 10%, brushed start, no forces / forces | 0.00 / 0.15 vs 3.89 / 5.51 (flatness after hold 0.988 vs 0.941) | 0.328 -> 0.400 | 11 / 288 s |
+
+Reading:
+- Forces between flakes leave nearly every flake tilted a few degrees off the field (mean close to rms, so a broad shift rather than a few stuck flakes). Without forces the miss is at most 0.2 deg. Independent of the start (brushed or random) and of the seed, insensitive to dt and cutoff.
+- Not yet converged in the refresh interval: refreshing every 5 instead of 10 steps raises the mean miss from 3.8 to 4.25 deg. Needs a run at every 1-2 steps before the numbers are quoted.
+- The effect grows with loading (2.0, 3.2, 3.8 deg at 1, 3, 10%) but smoothly, with no threshold near 5 vol% as in Pereira et al.; most of it is already there at 1%.
+- Close pairs line up along the field, most strongly at low loading (0.64 at 1%), the start of chains as seen by Le Ferrand and Arrieta (2022) at 1 vol%. At high loading neighbours are too crowded to rearrange in 5 s.
+- The size of the effect scales with chi_in, which is not measured for cosmetic flakes (4 is a guess). Real flakes are roughly square (Pereira et al. Figs. 9, 11); corners concentrate rim charge, so near-field forces may be stronger than for discs.
+- Next: refresh-interval convergence, chi_in dependence, longer holds (do chains keep growing?), then hand `dipole_rates` to the MPI and scaling work.
+
