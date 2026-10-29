@@ -354,6 +354,7 @@ static void flat_profile(const double *Nn, const char *label) {
    moments induced by the neighbours' fields are left out (first order in phi chi). */
 #define NRIM 16
 #define DCHI 3.0                   /* the dchi behind kappa0 in center_field.py */
+static double dchi = DCHI, chi_perp = CHI_PERP;   /* -DTIE_DCHI: both follow chi_in (thin flake, see main) */
 #ifndef DIPEVERY
 #define DIPEVERY 2                 /* recompute flake-flake rates every DIPEVERY steps (0.02 s; 10 underestimates tilt by 13%) */
 #endif
@@ -362,7 +363,7 @@ static double *wdip, *vdip, rcut;
 static void dipole_rates(const double *B, double chi_in) {
     int nr[3];
     for (int k = 0; k < 3; k++) nr[k] = (int)ceil(rcut / csv[k]);
-    const double S = 1.0 / (M_PI * H * DCHI), eps2 = 0.25 * H * H, dth = 2 * M_PI / NRIM;
+    const double S = 1.0 / (M_PI * H * dchi), eps2 = 0.25 * H * H, dth = 2 * M_PI / NRIM;
     #pragma omp parallel for schedule(dynamic, 32)
     for (int i = 0; i < N; i++) {
         double *ni = x + 3 * i, ui[3], vi[3], ri[NRIM][3], qi[NRIM], F[3] = {0, 0, 0}, T[3] = {0, 0, 0};
@@ -472,6 +473,14 @@ int main(int argc, char **argv) {
     /* film field: chi_in > 0 switches on the field of the magnetised film (needs walls); chi_perp = CHI_PERP */
     double chi_in = argc > 7 ? atof(argv[7]) : 0;
     if (chi_in > 0 && !wall) { fprintf(stderr, "film field needs a film thickness\n"); return 1; }
+#ifdef TIE_DCHI
+    /* a thin flake of in-plane susceptibility chi_in has chi_perp = chi_in / (1 + chi_in) (demagnetised normal to
+       its plane), so dchi = chi_in^2 / (1 + chi_in); kappa scales with dchi. Shape anisotropy and the pair forces
+       are then both second order in chi_in, and their ratio is 1 + chi_in. kappa0 is left as it is, which only
+       rescales time (by DCHI / dchi): runs with different chi_in are compared after the same number of alignment
+       times. Pair rates still scale correctly relative to alignment through S = 1 / (pi H dchi). */
+    if (chi_in > 0) { chi_perp = chi_in / (1 + chi_in); dchi = chi_in - chi_perp; }
+#endif
     /* static_hold_s > 0: one hold of that length in B0 only (a static magnet) instead of the switching protocol.
        start_spread_deg >= 0: flakes start near the nail plane (normal along N with that rms tilt, as after brushing)
        instead of random. */
@@ -557,7 +566,7 @@ int main(int argc, char **argv) {
                     /* thin magnetised sheet: inside, the normal field is cut to B_z / (1 + chi_zz), chi_zz = phi <chi_in (1 - nz^2) + chi_perp nz^2> */
                     double sz = 0;
                     #pragma omp parallel for reduction(+:sz)
-                    for (int i = 0; i < N; i++) { double c2 = x[3 * i + 2] * x[3 * i + 2]; sz += chi_in * (1 - c2) + CHI_PERP * c2; }
+                    for (int i = 0; i < N; i++) { double c2 = x[3 * i + 2] * x[3 * i + 2]; sz += chi_in * (1 - c2) + chi_perp * c2; }
                     B[2] = Bext[2] / (1 + phi * sz / N);
                 }
                 /* with contact, split the step so that no flake turns by more than MAXROT per substep: a larger turn

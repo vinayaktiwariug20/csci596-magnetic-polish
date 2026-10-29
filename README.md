@@ -257,3 +257,25 @@ Reading:
 - The size of the effect depends strongly on chi_in, which is not measured for cosmetic flakes: doubling it from 4 to 8 triples the mean miss (4.4 to 12.8 deg; pair forces scale as chi_in^2, the aligning torque does not). At chi_in 8 the spread is large enough to matter for the reflection lobe. Pinning down chi_in (or a range) is now the main physics question. Real flakes are roughly square (Pereira et al. Figs. 9, 11); corners concentrate rim charge, so near-field forces may be stronger than for discs.
 - Next: a chi_in range from flake composition, loading series at the new refresh interval, longer holds (do chains keep growing?), then hand `dipole_rates` to the MPI and scaling work.
 
+
+## Flake susceptibility: range and tied model (Oct 28)
+
+Correction to the chi_in 8 row above: those runs raised the pair forces (which go as chi_in^2) while keeping the aligning torque fixed (dchi = 3 in kappa0). Both come from the flake's own magnetisation: a thin flake of in-plane susceptibility chi_in has chi_perp = chi_in / (1 + chi_in) (demagnetised normal to its plane), so dchi = chi_in^2 / (1 + chi_in), and the ratio of pair torque to aligning torque grows only as 1 + chi_in. Build with `-DTIE_DCHI` to tie chi_perp and dchi to chi_in. kappa0 is left unchanged, which only rescales time, so runs with different chi_in are compared after the same number of alignment times.
+
+Range of chi_in. Assumptions, not measurements: the magnetic layer is magnetite (the black iron oxide of magnetic polish, mu0 Ms about 0.6 T), and the flakes are built like typical pearlescent pigments (iron oxide 50-150 nm per side on 300-500 nm of mica, so 20-50% of the flake volume). In-plane the flake is not demagnetised, so at the 160 mT of the magnet its magnetisation is limited by saturation: mu0 M <= f * 0.6 T, so chi_in = mu0 M / B <= 3.75 f, about 0.5-2. A stronger magnet lowers it further. chi_in 4 is at the top of what pure magnetite flakes could give, and 8 is out of range.
+
+Tied model, centre of the nail, 2000 flakes, 12a film, static 5 s, brushed start, cutoff 4a, rates every 2 steps:
+
+| chi_in | 1 + chi_in | miss mean / rms (deg) | flatness after hold | pairs along B (start 0.33) |
+|---|---|---|---|---|
+| 0.5 | 1.5 | 1.51 / 2.19 | 0.974 | 0.378 |
+| 1 | 2 | 1.96 / 2.89 | 0.966 | 0.384 |
+| 2 | 3 | 2.90 / 4.27 | 0.951 | 0.393 |
+| 4 | 5 | 4.53 / 6.38 | 0.923 | 0.403 |
+| 8 | 9 | 7.02 / 9.85 | 0.881 | 0.406 |
+
+(No forces: miss 0.00 / 0.15, flatness 0.988.) The mean miss grows roughly as (1 + chi_in)^0.8.
+
+Loading at chi_in 1 (tied, brushed): mean miss 1.04, 1.53, 1.96 deg at 1, 3, 10%; pairs along B 0.53, 0.45, 0.38. At chi_in 4 (untied, random start, rates every 2 steps): 2.27, 3.65, 4.38 deg at 1, 3, 10%.
+
+Reading: in the plausible range (chi_in 0.5-2) forces between flakes tilt them 1.5-3 deg off the field at 10% loading, about 1 deg at 1%. The reflection moves by twice the tilt, so 3-6 deg of extra lobe width at high loading. The growth with loading is smooth and does not show the threshold near 5 vol% that Pereira et al. report, so on present evidence neither contact nor pair forces alone explain it. Candidates left: magnetophoresis in the magnet's gradient (flakes drawn together and toward the nail), polish viscosity rising with loading, flake shape and size spread (squares, 5-60 um), and chaining over longer holds. Measuring chi_in of a real flake (e.g. alignment speed of a single flake under a known field) would remove the main uncertainty.
