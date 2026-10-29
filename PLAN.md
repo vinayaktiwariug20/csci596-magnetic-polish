@@ -1,6 +1,6 @@
 # CSCI 596 final project plan (draft)
 
-Team: Vinayak Tiwari, Shreeya Halwasia, Ishita Joshi (roles below are drafts; edit freely).
+Team: Vinayak Tiwari, Shreeya Halwasia, Ishita Joshi.
 
 ## One-line project
 Particle-level simulation of magnetic platelet flakes in viscous polish, driven by the existing field solver,
@@ -33,12 +33,15 @@ Secondary tests (cheap, no new code):
   predicted bright patch with the rod model and with photographs.
 - **Level 3 (stretch):** gel rheology (yield stress), flake-flake interactions, 3D.
 
-## Roles (draft)
-| Role | Scope |
+## Roles (agreed Oct 28)
+| Who | Scope |
 |---|---|
-| A. Simulation core | Platelet orientation dynamics in C |
-| B. Parallelization & benchmarks | OpenMP/MPI on Discovery, Slurm scripts, scaling plot |
-| C. Validation & viewer | Compare with existing finish model and photos, feed results into viewer, README |
+| Vinayak Tiwari | Flake model (`c/soft.c`), reproducing the Pereira et al. 2017 loading test, overall physics |
+| Ishita Joshi | Magnetic forces between flakes (dipole pair forces with a cutoff, cell lists), MPI version and scaling runs on Discovery |
+| Shreeya Halwasia | Visualisation (render the nail and bead from simulated flake orientations, BRDF approach of Pereira et al.), slides |
+
+Project question (Oct 28): do magnetic forces between flakes explain the loading effect measured in real polish
+(alignment degrades above about 5 vol%, Pereira et al. 2017), which contact alone does not reproduce?
 
 Each role must be written specifically in the final report (who did what).
 
@@ -202,7 +205,7 @@ Reading: the walls do not stop alignment at the nail centre. Steeply tilted flak
 | 3132 | 0.048 | 0.048 / 0.048 / 0.049 / 0.049 | 0.024 / 0.045 |
 | 3128 | 0.000 | 0.000 / 0.000 / 0.001 / 0.001 | 0.000 / 0.021 |
 
-Reading: after six switching cycles every texel sits on its geometric limit (n along B0 x B90) to within 0.006, with or without contact and walls, nail band included. So in this model the converged bead shape is set by field geometry alone. Contact shows up only in the transient: after the first hold, 10% loading raises flatness by 0.02 to 0.03 at every texel (crowding pushes flakes towards a common plane). If contact matters for real nails, it is in short or single holds, not after full switching.
+Reading: after six switching cycles every texel sits on its geometric limit (n along B0 x B90) to within 0.006, with or without contact and walls, nail band included. So in this model the converged bead shape is set by field geometry alone. (Corrected Oct 28: an earlier version said contact raises flatness after the first hold by 0.02 to 0.03. That compared runs with different starting states: inserting flakes between walls makes them start flatter at higher loading. With the same start, the first-hold difference vanishes as dt goes to 0; see "Static magnet" below.)
 
 ## Literature (Oct 27)
 

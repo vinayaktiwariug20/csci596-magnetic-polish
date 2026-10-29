@@ -29,9 +29,36 @@ the parallel code real communication to do.
     python platelet_spike.py fields.json 300    # needs numpy, matplotlib
     python contact_spike.py fields.json 300     # needs numpy
 
-## Status
-Feasibility only. All constants are order-of-magnitude estimates, and both spikes are toy models. See `PLAN.md`
-for what each test did and did not show. The C implementation and parallel versions are the next step.
+## Start here (team, Oct 28)
+Question now: do magnetic forces between flakes explain the loading effect measured in real polish (alignment
+degrades above about 5 vol%, Pereira et al. 2017), which contact alone does not reproduce? Roles are in `PLAN.md`.
+The dated sections below are the log of results so far; the last few matter most.
+
+Build and run the main model (gcc with OpenMP; on Windows use Git Bash or MSYS2, on Discovery `module load gcc`):
+
+    cd c
+    gcc -O2 -fopenmp -Wall soft.c -o soft -lm
+    python center_field.py ../spike/fields.json field_3152.txt 300 3152    # field at one nail point (centre)
+    ./soft field_3152.txt 0.03 5000 free 1 12             # 3% loading, 5000 flakes, contact, 12a film
+    ./soft field_3152.txt 0.10 5000 free 1 12 4 5 10      # + film field (chi_in 4), static 5 s hold, brushed start
+
+Arguments: field file, volume fraction, number of flakes, `ideal` (no contact) / `fixed` / `free` (sliding
+contact), seed, film thickness in flake radii (0 = periodic cube), chi_in (film field, 0 = off), static hold in s
+(0 = 0/90 switching), start spread in degrees (-1 = random start). Lengths are in flake radii a = 6 um.
+
+Where things live in `c/soft.c`:
+- `rk4` / `rhs`: magnetic torque on one flake (dn/dt = -kappa (B.n)(B - (B.n) n)). A field from other flakes
+  would be added to B here, per flake.
+- `build_cells`, `nb_cell`, `cell_of`: cell lists (cell side 2a + H). A dipole cutoff of a few a needs larger cells
+  or a second list; the same neighbour loop is what an MPI version splits across ranks (ghost layers, as in
+  assignments 4 and 5).
+- `sweep`, `apply_push`, `mobility`: contact resolution (projection, Jacobi sweeps). Flake mobilities in
+  `mobility` also convert a magnetic force or torque into motion.
+- Each flake updates only itself from neighbours' old state, so OpenMP needs no locks and results do not
+  depend on thread count; keep that property.
+
+For the visualisation: `soft` currently prints summaries only. Writing flake positions and normals to a file
+(for rendering a BRDF lobe per nail point) is a small addition; ask Vinayak or open an issue.
 
 ## C port (Oct 24)
 
@@ -135,7 +162,7 @@ Reading: the walls do not stop alignment at the nail centre. Steeply tilted flak
 | 3132 | 0.048 | 0.048 / 0.048 / 0.049 / 0.049 | 0.024 / 0.045 |
 | 3128 | 0.000 | 0.000 / 0.000 / 0.001 / 0.001 | 0.000 / 0.021 |
 
-Reading: after six switching cycles every texel sits on its geometric limit (n along B0 x B90) to within 0.006, with or without contact and walls, nail band included. So in this model the converged bead shape is set by field geometry alone. Contact shows up only in the transient: after the first hold, 10% loading raises flatness by 0.02 to 0.03 at every texel (crowding pushes flakes towards a common plane). If contact matters for real nails, it is in short or single holds, not after full switching.
+Reading: after six switching cycles every texel sits on its geometric limit (n along B0 x B90) to within 0.006, with or without contact and walls, nail band included. So in this model the converged bead shape is set by field geometry alone. (Corrected Oct 28: an earlier version said contact raises flatness after the first hold by 0.02 to 0.03. That compared runs with different starting states: inserting flakes between walls makes them start flatter at higher loading. With the same start, the first-hold difference vanishes as dt goes to 0; see "Static magnet" below.)
 
 ## Flakes' own magnetic field: estimate (Oct 27)
 
@@ -164,3 +191,16 @@ Reading: the largest effect is the film field, a first-order shift of the bead o
 - With contact (`free`, 5000 flakes, texel 3136, chi_in 4): 3% end 0.235, 10% end 0.304. Contact again changes nothing at the end.
 
 Reading: in this model, loading moves the bead through the film field alone; contact does not add to it. Literature notes are in PLAN.md.
+
+## Static magnet and a time-step artifact (Oct 28)
+
+`soft` arguments 8 and 9: one static hold in B0 (`static_hold_s`) and a start near the nail plane (`start_spread_deg`, -1 = random). Output: rms angle by which flake planes miss B0. Centre texel, film 12a, 5000 flakes, 5 s, contact (`free`), dt 0.01:
+
+| loading | 1% | 3% | 5% | 8% | 10% | 13% |
+|---|---|---|---|---|---|---|
+| brushed start (10 deg), rms miss | 0.26 | 0.47 | 0.61 | 0.74 | 0.76 | 0.77 deg |
+| random start, rms miss | 4.2 | 6.1 | 9.5 | 11.2 | 11.4 | 13.4 deg |
+
+The random-start misalignment does not relax with longer holds (5, 15, 30 s identical), but it is a numerical artifact: about 7% of flakes per step rotate into a neighbour in one step, are sent back by the crossing backstop and never feel a contact push. At 10%: dt 0.01 / 0.005 / 0.0025 gives reverted flake-steps 7.1 / 3.0 / 1.5%, rms miss 11.4 / 7.6 / 5.7 deg, mean miss 2.78 / 1.24 / 0.71 deg (heading to 0). First-hold flatness with contact 0.521 / 0.530 / 0.533 against 0.533 without contact.
+
+Reading: with a converged time step, sliding contact changes neither the first hold nor the end state. The switching results above were already dt-converged at the end (0.998 vs 1.000), so they stand. Contact therefore cannot explain the loading effect Pereira et al. measured, which leaves interactions between flakes (magnetic forces, chaining) as the candidate. For anything near contact, use dt 0.0025 or smaller, or add a per-step rotation limit (the rim of a flake should move less than about H/4 per step); this applies to the flake-force work too.

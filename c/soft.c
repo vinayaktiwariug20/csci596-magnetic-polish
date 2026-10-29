@@ -342,7 +342,7 @@ static void flat_profile(const double *Nn, const char *label) {
 }
 
 int main(int argc, char **argv) {
-    if (argc < 6) { fprintf(stderr, "usage: %s field_center.txt phi N ideal|fixed|free seed [film_thickness_in_a [chi_in]]\n", argv[0]); return 1; }
+    if (argc < 6) { fprintf(stderr, "usage: %s field_center.txt phi N ideal|fixed|free seed [film_thickness_in_a [chi_in [static_hold_s [start_spread_deg]]]]\n", argv[0]); return 1; }
     double B0[3], B90[3], Nn[3], kappa0;
     FILE *f = fopen(argv[1], "r");
     if (!f || fscanf(f, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf", B0, B0 + 1, B0 + 2, B90, B90 + 1, B90 + 2, Nn, Nn + 1, Nn + 2, &kappa0) != 10) {
@@ -358,6 +358,10 @@ int main(int argc, char **argv) {
     /* film field: chi_in > 0 switches on the field of the magnetised film (needs walls); chi_perp = CHI_PERP */
     double chi_in = argc > 7 ? atof(argv[7]) : 0;
     if (chi_in > 0 && !wall) { fprintf(stderr, "film field needs a film thickness\n"); return 1; }
+    /* static_hold_s > 0: one hold of that length in B0 only (a static magnet) instead of the switching protocol.
+       start_spread_deg >= 0: flakes start near the nail plane (normal along N with that rms tilt, as after brushing)
+       instead of random. */
+    double tstatic = argc > 8 ? atof(argv[8]) : 0, spread0 = argc > 9 ? atof(argv[9]) : -1;
     if (wall) {
         /* rotate the fields so that the local nail normal is z (Rodrigues: R u = u + v x u + v x (v x u) / (1 + c)) */
         unit(Nn);
@@ -385,6 +389,7 @@ int main(int argc, char **argv) {
         if (++tries > 2000LL * N) { fprintf(stderr, "insertion jammed at %d of %d flakes\n", i, N); return 1; }
         double p[3], n[3], r[3];
         for (int k = 0; k < 3; k++) { p[k] = urand() * Lb[k]; n[k] = grand(); }
+        if (spread0 >= 0) for (int k = 0; k < 3; k++) n[k] = Nn[k] + spread0 * M_PI / 180 / sqrt(2) * n[k];
         unit(n);
         if (wall && (wall_pen(p[2], n, -1, r) > 0 || wall_pen(p[2], n, 1, r) > 0)) continue;
         int c[3], ok = 1;
@@ -417,9 +422,9 @@ int main(int argc, char **argv) {
 #ifdef _OPENMP
     t0 = omp_get_wtime();
 #endif
-    int nhold = (int)floor(HOLD / DT + 0.5);
-    for (int cyc = 0; cyc < CYCLES; cyc++) {
-        for (int ph = 0; ph < 2; ph++) {
+    int nhold = (int)floor((tstatic > 0 ? tstatic : HOLD) / DT + 0.5);
+    for (int cyc = 0; cyc < (tstatic > 0 ? 1 : CYCLES); cyc++) {
+        for (int ph = 0; ph < (tstatic > 0 ? 1 : 2); ph++) {
             const double *Bext = ph ? B90 : B0;
             double B[3] = {Bext[0], Bext[1], Bext[2]};
             for (int s = 0; s < nhold; s++, nsteps++) {
@@ -458,6 +463,14 @@ int main(int argc, char **argv) {
         disp += sqrt(r2);
     }
     if (wall) flat_profile(Nn, "at end      ");
+    if (tstatic > 0) {
+        /* static field: how far each flake's plane misses B0 (angle between n and the plane normal to B0) */
+        double b[3] = {B0[0], B0[1], B0[2]}, s2 = 0, s1 = 0;
+        unit(b);
+        for (int i = 0; i < N; i++) { double a = asin(fmin(1.0, fabs(dot(x + 3 * i, b)))); s2 += a * a; s1 += a; }
+        printf("  static %gs, start spread %g deg: flake plane misses B by mean %.2f deg, rms %.2f deg\n",
+               tstatic, spread0, s1 / N * 180 / M_PI, sqrt(s2 / N) * 180 / M_PI);
+    }
     printf("%-5s phi=%.2f N=%d dt=%g film=%ga chi_in=%g  flat: start %.3f  hold1 %.3f  end %.3f  sweeps/step %.1f  unconverged steps %lld (worst pen %.2fH)  "
            "crossings seen %lld  reverted flake-steps %.3f%%  mean shift %.2fa  wall %.1f s\n",
            argv[4], phi, N, DT, Lz, chi_in, fs, f1, mean_flat(Nn), (double)nsweeps / nsteps, unconverged, worst / H, ncross, 100.0 * nrevert / ((double)N * nsteps), disp / N, t1 - t0);
