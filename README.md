@@ -279,3 +279,27 @@ Tied model, centre of the nail, 2000 flakes, 12a film, static 5 s, brushed start
 Loading at chi_in 1 (tied, brushed): mean miss 1.04, 1.53, 1.96 deg at 1, 3, 10%; pairs along B 0.53, 0.45, 0.38. At chi_in 4 (untied, random start, rates every 2 steps): 2.27, 3.65, 4.38 deg at 1, 3, 10%.
 
 Reading: in the plausible range (chi_in 0.5-2) forces between flakes tilt them 1.5-3 deg off the field at 10% loading, about 1 deg at 1%. The reflection moves by twice the tilt, so 3-6 deg of extra lobe width at high loading. The growth with loading is smooth and does not show the threshold near 5 vol% that Pereira et al. report, so on present evidence neither contact nor pair forces alone explain it. Candidates left: magnetophoresis in the magnet's gradient (flakes drawn together and toward the nail), polish viscosity rising with loading, flake shape and size spread (squares, 5-60 um), and chaining over longer holds. Measuring chi_in of a real flake (e.g. alignment speed of a single flake under a known field) would remove the main uncertainty.
+
+## Magnet pull and chains over longer holds (Oct 29)
+
+Magnet pull (magnetophoresis), estimate. A flake's moment in the magnet's gradient (B = 160 mT falling off over L = 2-10 mm) drifts it 4-36 nm per alignment time 1/(kappa B^2), for chi_in 0.5-2; the viscosity cancels in this ratio. How many alignment times a coat sees depends on the viscosity: in UV gel (300 Pa s) alignment takes about a second and the drift over a 10 s hold is negligible; in thin polish (about 1 Pa s) alignment takes milliseconds and a 10 s hold can move flakes tens of um toward the magnet, comparable to the film thickness. It moves all flakes alike, so its main effect would be to pack them toward one side (higher local loading), not to tilt them. Not modelled.
+
+Chains over longer holds. Tied model, chi_in 1, brushed start, 2000 flakes, 12a film, cutoff 4a. Time here is in the kappa0 units of the other runs (1 s = 6 alignment times at 160 mT); real time is shorter in thin polish and longer in gel. `chains.py` links flakes whose centres are closer than 2.2a and whose pair line is within 37 deg of the field, and counts connected chains.
+
+| loading, hold | flatness | miss mean (deg) | links/flake | mean chain (per flake) | longest |
+|---|---|---|---|---|---|
+| 1%, no forces 5 s | 0.988 | 0.00 | 0.14 | 1.4 | 5 |
+| 1%, 45 s | 0.785 | 1.68 | 0.76 | 6.5 | 29 |
+| 3%, no forces 45 s | 0.986 | 0.00 | 0.37 | 2.6 | 13 |
+| 3%, 5 s | 0.971 | 1.53 | 0.74 | 9.6 | 47 |
+| 3%, 15 s | 0.900 | 1.89 | 1.00 | 37 | 139 |
+| 3%, 45 s | 0.736 | 1.87 | 1.21 | 129 | 377 |
+| 10%, no forces 5 s | 0.988 | 0.00 | 1.27 | (percolates by contact) | |
+| 10%, 5 s | 0.966 | 1.96 | 1.80 | | |
+| 10%, 45 s | 0.864 | 2.14 | 2.27 | | |
+
+Reading:
+- Chains form and keep growing along the field: at 3% the mean chain grows from 10 to 129 flakes between 5 and 45 s, the longest spans the 42a box many times over. At 10% the flakes are close enough that the count saturates; links per flake still rise.
+- The flake planes stay within about 2 deg of the field, but the flakes turn about the field axis, away from the nail plane: flatness falls from 0.97 to 0.74 at 3% over 45 s, with no forces it stays at 0.99. A static field leaves that rotation free (a flake containing B feels no torque about B), and the pair forces inside chains drive it. In `chains_03_45.png` the normals spread along one line (a stripe-shaped reflection lobe, broadened across the field), not into a disc.
+- This is the largest effect of flake-flake forces found so far, and it grows with time rather than with loading: the loss is largest at 3% (0.74), then 1% (0.79), then 10% (0.86), where crowding hinders rotation. A loading threshold would need a further ingredient; a hold-time dependence is a prediction that could be checked against photos of real nails held under the magnet for different times.
+- Open: convergence of the long runs (one seed, 2000 flakes in a box the longest chains already wrap), whether rotating or switching fields (the 0/90 protocol pins the rotation about B) suppress it, and whether it survives with a larger chi_in.
