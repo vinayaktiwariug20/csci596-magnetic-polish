@@ -361,8 +361,11 @@ static double dchi = DCHI, chi_perp = CHI_PERP;   /* -DTIE_DCHI: both follow chi
 #define DIPEVERY 2                 /* recompute flake-flake rates every DIPEVERY steps (0.02 s; 10 underestimates tilt by 13%) */
 #endif
 static double *wdip, *vdip, rcut;
+static double dipole_seconds = 0.0;
+static long long dipole_calls = 0;
 
 static void dipole_rates(const double *B, double chi_in) {
+    double dipole_start = MPI_Wtime();
     int nr[3];
     for (int k = 0; k < 3; k++) nr[k] = (int)ceil(rcut / csv[k]);
     const double S = 1.0 / (M_PI * H * dchi), eps2 = 0.25 * H * H, dth = 2 * M_PI / NRIM;
@@ -445,6 +448,9 @@ static void dipole_rates(const double *B, double chi_in) {
         MPI_IN_PLACE, 0, MPI_DOUBLE,
         vdip, counts, displs, MPI_DOUBLE, MPI_COMM_WORLD
     );
+
+    dipole_seconds += MPI_Wtime() - dipole_start;
+    dipole_calls++;
 }
 
 /* pairs closer than 2.2 a (centres): count per flake, and <(d.b)^2> with b the in-plane field direction
@@ -698,6 +704,18 @@ int main(int argc, char **argv) {
     printf("%-5s phi=%.2f N=%d dt=%g film=%ga chi_in=%g  flat: start %.3f  hold1 %.3f  end %.3f  substeps/step %.2f  sweeps/substep %.1f  unconverged substeps %lld (worst pen %.2fH)  "
            "crossings seen %lld  reverted flake-substeps %.3f%%  mean shift %.2fa  wall %.1f s\n",
            argv[4], phi, N, DT, Lz, chi_in, fs, f1, mean_flat(Nn), (double)nsub / nsteps, (double)nsweeps / nsub, unconverged, worst / H, ncross, 100.0 * nrevert / ((double)N * nsub), disp / N, t1 - t0);
+
+    double max_dipole_seconds = 0.0;
+    MPI_Reduce(
+        &dipole_seconds, &max_dipole_seconds, 1,
+        MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD
+    );
+
+    if (mpi_rank == 0) {
+        printf("MPI_TIMING processes=%d calls=%lld dipole_seconds=%.6f\n",
+               mpi_size, dipole_calls, max_dipole_seconds);
+    }
+
     MPI_Finalize();
     return 0;
 }

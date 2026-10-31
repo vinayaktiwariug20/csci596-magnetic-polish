@@ -25,7 +25,7 @@ mpirun -bind-to none -n 2 \
 sed -E 's/wall [0-9.]+ s/wall TIME s/' validation_openmp.txt \
     > validation_openmp_normalized.txt
 
-sed -E 's/wall [0-9.]+ s/wall TIME s/' validation_mpi.txt \
+sed -E '/^MPI_TIMING /d; s/wall [0-9.]+ s/wall TIME s/' validation_mpi.txt \
     > validation_mpi_normalized.txt
 
 if diff -u validation_openmp_normalized.txt validation_mpi_normalized.txt
