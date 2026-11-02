@@ -303,3 +303,21 @@ Reading:
 - The flake planes stay within about 2 deg of the field, but the flakes turn about the field axis, away from the nail plane: flatness falls from 0.97 to 0.74 at 3% over 45 s, with no forces it stays at 0.99. A static field leaves that rotation free (a flake containing B feels no torque about B), and the pair forces inside chains drive it. In `chains_03_45.png` the normals spread along one line (a stripe-shaped reflection lobe, broadened across the field), not into a disc.
 - This is the largest effect of flake-flake forces found so far, and it grows with time rather than with loading: the loss is largest at 3% (0.74), then 1% (0.79), then 10% (0.86), where crowding hinders rotation. A loading threshold would need a further ingredient; a hold-time dependence is a prediction that could be checked against photos of real nails held under the magnet for different times.
 - Open: convergence of the long runs (one seed, 2000 flakes in a box the longest chains already wrap), whether rotating or switching fields (the 0/90 protocol pins the rotation about B) suppress it, and whether it survives with a larger chi_in.
+
+## 0/90 switching with flake-flake forces (Nov 2)
+
+Same settings as the long holds above (tied model, chi_in 1, 3%, brushed start, 2000 flakes, 12a film, cutoff 4a), but the switching protocol instead of a static hold: 6 cycles of 5 s at 0 deg and 5 s at 90 deg, 60 s in all. The run ends in the 90 deg phase, so chains are counted along both fields (`chains.py` uses B0; along B90 the same rule with B90).
+
+| run | flatness | links/flake | mean chain (per flake) | longest |
+|---|---|---|---|---|
+| static 45 s, forces (from above) | 0.736 | 1.21 | 129 | 377 |
+| switching 60 s, no forces | 1.000 | 0.37 / 0.40 | 2.6 / 2.9 | 13 / 16 |
+| switching 60 s, forces | 0.966 | 0.67 / 0.84 | 15 / 28 | 78 / 152 |
+
+(pairs of numbers: along B0 / along B90)
+
+Reading:
+- Switching suppresses the loss almost completely: after 60 s the flatness is 0.966, against 0.736 after 45 s of static field, and about what a single 5 s static hold gives (0.971). The forces still cost 0.03 against the no-force run (1.000), uniformly through the film depth.
+- Chains still form, mostly along the field of the current phase (28 flakes on average along B90, 15 along B0), but stay much smaller than under a static field (129): each switch turns the field by 90 deg and breaks up chains built along the previous field.
+- Mechanism: in a static field a flake containing B is free to turn about B, and pair forces inside chains drive that turn. Under 0/90 switching the only orientation that contains both fields is the nail plane, so every phase pulls the flakes back toward it. This is why the cat-eye protocol is robust to flake-flake forces, and it means the large flatness loss found above is specific to a static magnet.
+- So flake-flake forces do not explain a loading effect under switching either (one seed, one loading; checking 1% and 10% would make this firmer). They do predict that a static magnet gives a worse, stripe-shaped reflection than switching for the same total time.
