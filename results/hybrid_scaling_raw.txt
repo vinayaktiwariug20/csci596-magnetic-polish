@@ -1,0 +1,29 @@
+Hybrid MPI + OpenMP scaling
+N=2000, phi=0.03, static hold=1.0 s, total cores=8
+
+RUN processes=1 threads=8 repeat=1
+MPI_TIMING processes=1 calls=50 dipole_seconds=1.017439
+RUN processes=1 threads=8 repeat=2
+MPI_TIMING processes=1 calls=50 dipole_seconds=1.016407
+RUN processes=1 threads=8 repeat=3
+MPI_TIMING processes=1 calls=50 dipole_seconds=1.017554
+RUN processes=2 threads=4 repeat=1
+MPI_TIMING processes=2 calls=50 dipole_seconds=1.172297
+RUN processes=2 threads=4 repeat=2
+MPI_TIMING processes=2 calls=50 dipole_seconds=1.171288
+RUN processes=2 threads=4 repeat=3
+MPI_TIMING processes=2 calls=50 dipole_seconds=1.168071
+RUN processes=4 threads=2 repeat=1
+MPI_TIMING processes=4 calls=50 dipole_seconds=1.297323
+RUN processes=4 threads=2 repeat=2
+MPI_TIMING processes=4 calls=50 dipole_seconds=1.314201
+RUN processes=4 threads=2 repeat=3
+MPI_TIMING processes=4 calls=50 dipole_seconds=1.290343
+RUN processes=8 threads=1 repeat=1
+MPI_TIMING processes=8 calls=50 dipole_seconds=1.076944
+RUN processes=8 threads=1 repeat=2
+MPI_TIMING processes=8 calls=50 dipole_seconds=1.075821
+RUN processes=8 threads=1 repeat=3
+MPI_TIMING processes=8 calls=50 dipole_seconds=1.038407
+
+HYBRID VALIDATION PASSED: all configurations match.

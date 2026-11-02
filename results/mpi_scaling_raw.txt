@@ -1,0 +1,27 @@
+MPI magnetic-force scaling
+N=2000, phi=0.03, static hold=1.0 s, cutoff=4a
+
+RUN processes=1 repeat=1
+MPI_TIMING processes=1 calls=50 dipole_seconds=7.158023
+RUN processes=1 repeat=2
+MPI_TIMING processes=1 calls=50 dipole_seconds=7.896101
+RUN processes=1 repeat=3
+MPI_TIMING processes=1 calls=50 dipole_seconds=7.902506
+RUN processes=2 repeat=1
+MPI_TIMING processes=2 calls=50 dipole_seconds=3.999164
+RUN processes=2 repeat=2
+MPI_TIMING processes=2 calls=50 dipole_seconds=3.967979
+RUN processes=2 repeat=3
+MPI_TIMING processes=2 calls=50 dipole_seconds=3.967491
+RUN processes=4 repeat=1
+MPI_TIMING processes=4 calls=50 dipole_seconds=2.064943
+RUN processes=4 repeat=2
+MPI_TIMING processes=4 calls=50 dipole_seconds=2.090446
+RUN processes=4 repeat=3
+MPI_TIMING processes=4 calls=50 dipole_seconds=2.103478
+RUN processes=8 repeat=1
+MPI_TIMING processes=8 calls=50 dipole_seconds=1.111251
+RUN processes=8 repeat=2
+MPI_TIMING processes=8 calls=50 dipole_seconds=1.088735
+RUN processes=8 repeat=3
+MPI_TIMING processes=8 calls=50 dipole_seconds=1.084780
