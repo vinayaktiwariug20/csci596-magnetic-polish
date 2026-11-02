@@ -11,8 +11,8 @@ set -euo pipefail
 
 cd "$SLURM_SUBMIT_DIR/c" || exit 1
 
-mpicc -O2 -Wall -Wextra -fopenmp -DTIE_DCHI \
-    -o soft_mpi soft_mpi.c -lm
+mpicc -O2 -Wall -Wextra -fopenmp -DTIE_DCHI -DUSE_MPI \
+    -o soft_mpi soft.c -lm
 
 echo "Hybrid MPI + OpenMP scaling"
 echo "N=2000, phi=0.03, static hold=1.0 s, total cores=8"

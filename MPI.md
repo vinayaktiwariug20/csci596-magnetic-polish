@@ -3,8 +3,9 @@
 ## Purpose
 
 This implementation parallelizes the magnetic forces and torques between
-nearby flakes. The original physical model remains in `c/soft.c`; the MPI
-version is in `c/soft_mpi.c`.
+nearby flakes. It lives in `c/soft.c` behind the `USE_MPI` compile flag:
+without `-DUSE_MPI` the program builds and runs exactly as the serial/OpenMP
+version (checked byte for byte), with it the same file builds the MPI version.
 
 The scientific question is whether magnetic interactions between flakes can
 cause chaining and reduce their alignment in magnetic nail polish.
@@ -47,8 +48,8 @@ and exchange boundary flakes.
 From the `c` directory:
 
 ```bash
-mpicc -O2 -Wall -Wextra -fopenmp -DTIE_DCHI \
-    -o soft_mpi soft_mpi.c -lm
+mpicc -O2 -Wall -Wextra -fopenmp -DTIE_DCHI -DUSE_MPI \
+    -o soft_mpi soft.c -lm
 ```
 
 The final program compiles with `-Wall -Wextra` without warnings.

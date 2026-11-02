@@ -41,6 +41,9 @@
 #ifdef _OPENMP
 #include <omp.h>
 #endif
+#ifdef USE_MPI
+#include <mpi.h>
+#endif
 #include "overlap.h"
 
 #ifndef DT
@@ -157,6 +160,7 @@ static int may_touch(const double *ni, const double *d, const double *nj) {
 }
 
 static int N, mode, wall, ncv[3], ncell, *head, *next, *flag;
+static int mpi_rank = 0, mpi_size = 1;   /* -DUSE_MPI: every rank holds the full state; only dipole_rates is split (MPI.md) */
 static double Lb[3], csv[3], *pos, *x, *dpos, *drot, *kap, *xold, *posold;
 
 /* zero-thickness discs cut through each other (near-parallel pairs never count: their distance is reliable) */
@@ -359,13 +363,24 @@ static double dchi = DCHI, chi_perp = CHI_PERP;   /* -DTIE_DCHI: both follow chi
 #define DIPEVERY 2                 /* recompute flake-flake rates every DIPEVERY steps (0.02 s; 10 underestimates tilt by 13%) */
 #endif
 static double *wdip, *vdip, rcut;
+#ifdef USE_MPI
+static double dipole_seconds = 0.0;
+static long long dipole_calls = 0;
+#endif
 
 static void dipole_rates(const double *B, double chi_in) {
+#ifdef USE_MPI
+    double dipole_start = MPI_Wtime();
+#endif
     int nr[3];
     for (int k = 0; k < 3; k++) nr[k] = (int)ceil(rcut / csv[k]);
     const double S = 1.0 / (M_PI * H * dchi), eps2 = 0.25 * H * H, dth = 2 * M_PI / NRIM;
+    /* this rank's contiguous block of target flakes (all of them without MPI) */
+    int base = N / mpi_size, remainder = N % mpi_size;
+    int i_start = mpi_rank * base + (mpi_rank < remainder ? mpi_rank : remainder);
+    int i_end = i_start + base + (mpi_rank < remainder ? 1 : 0);
     #pragma omp parallel for schedule(dynamic, 32)
-    for (int i = 0; i < N; i++) {
+    for (int i = i_start; i < i_end; i++) {
         double *ni = x + 3 * i, ui[3], vi[3], ri[NRIM][3], qi[NRIM], F[3] = {0, 0, 0}, T[3] = {0, 0, 0};
         double bi = dot(B, ni), Mi[3];
         for (int k = 0; k < 3; k++) Mi[k] = chi_in * (B[k] - bi * ni[k]);
@@ -410,6 +425,18 @@ static void dipole_rates(const double *B, double chi_in) {
             vdip[3 * i + k] = kap[i] * S * (F[k] - fn * ni[k] / 3);
         }
     }
+#ifdef USE_MPI
+    /* share the blocks so every rank has the complete rates */
+    int counts[mpi_size], displs[mpi_size];
+    for (int r = 0; r < mpi_size; r++) {
+        counts[r] = 3 * (base + (r < remainder ? 1 : 0));
+        displs[r] = 3 * (r * base + (r < remainder ? r : remainder));
+    }
+    MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DOUBLE, wdip, counts, displs, MPI_DOUBLE, MPI_COMM_WORLD);
+    MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DOUBLE, vdip, counts, displs, MPI_DOUBLE, MPI_COMM_WORLD);
+    dipole_seconds += MPI_Wtime() - dipole_start;
+    dipole_calls++;
+#endif
 }
 
 /* pairs closer than 2.2 a (centres): count per flake, and <(d.b)^2> with b the in-plane field direction
@@ -456,7 +483,11 @@ static int write_flakes(const char *path, const char *field, double phi, double 
     return fclose(f) == 0;
 }
 
+#ifdef USE_MPI
+static int run(int argc, char **argv) {   /* the serial main; the MPI main below wraps it */
+#else
 int main(int argc, char **argv) {
+#endif
     if (argc < 6) { fprintf(stderr, "usage: %s field_center.txt phi N ideal|fixed|free seed [film_thickness_in_a [chi_in [static_hold_s [start_spread_deg [out.csv|- [cutoff_a]]]]]]\n", argv[0]); return 1; }
     double B0[3], B90[3], Nn[3], kappa0;
     FILE *f = fopen(argv[1], "r");
@@ -633,7 +664,7 @@ int main(int argc, char **argv) {
     close_pairs(B0, &cp1, &ca1);
     printf("  close pairs (centres < 2.2a) per flake: start %.3f end %.3f; alignment with B0 <(d.b)^2>: start %.3f end %.3f (1/3 = none)\n",
            cp0, cp1, ca0, ca1);
-    if (argc > 10 && argv[10][0] != '-' && !write_flakes(argv[10], argv[1], phi, Lz, chi_in, tstatic, B0, B90, Nn)) { fprintf(stderr, "cannot write %s\n", argv[10]); return 1; }
+    if (mpi_rank == 0 && argc > 10 && argv[10][0] != '-' && !write_flakes(argv[10], argv[1], phi, Lz, chi_in, tstatic, B0, B90, Nn)) { fprintf(stderr, "cannot write %s\n", argv[10]); return 1; }
     if (tstatic > 0) {
         /* static field: how far each flake's plane misses B0 (angle between n and the plane normal to B0) */
         double b[3] = {B0[0], B0[1], B0[2]}, s2 = 0, s1 = 0;
@@ -647,3 +678,23 @@ int main(int argc, char **argv) {
            argv[4], phi, N, DT, Lz, chi_in, fs, f1, mean_flat(Nn), (double)nsub / nsteps, (double)nsweeps / nsub, unconverged, worst / H, ncross, 100.0 * nrevert / ((double)N * nsub), disp / N, t1 - t0);
     return 0;
 }
+
+#ifdef USE_MPI
+int main(int argc, char **argv) {
+    int provided = 0;
+    MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+    if (provided < MPI_THREAD_FUNNELED) {
+        if (mpi_rank == 0) fprintf(stderr, "MPI thread support is insufficient\n");
+        MPI_Abort(MPI_COMM_WORLD, 1);
+    }
+    if (mpi_rank != 0) freopen("/dev/null", "w", stdout);   /* print the results once */
+    int rc = run(argc, argv);
+    double max_dipole_seconds = 0.0;
+    MPI_Reduce(&dipole_seconds, &max_dipole_seconds, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    if (mpi_rank == 0) printf("MPI_TIMING processes=%d calls=%lld dipole_seconds=%.6f\n", mpi_size, dipole_calls, max_dipole_seconds);
+    MPI_Finalize();
+    return rc;
+}
+#endif

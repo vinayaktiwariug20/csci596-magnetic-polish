@@ -12,3 +12,4 @@ c/flakes*.csv
 c/flakes*.png
 c/chains*.csv
 c/chains*.png
+__pycache__/

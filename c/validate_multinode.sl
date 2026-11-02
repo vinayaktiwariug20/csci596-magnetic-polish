@@ -16,8 +16,8 @@ scontrol show hostnames "$SLURM_JOB_NODELIST"
 echo
 
 gcc -O2 -fopenmp -DTIE_DCHI -o soft soft.c -lm
-mpicc -O2 -Wall -Wextra -fopenmp -DTIE_DCHI \
-    -o soft_mpi soft_mpi.c -lm
+mpicc -O2 -Wall -Wextra -fopenmp -DTIE_DCHI -DUSE_MPI \
+    -o soft_mpi soft.c -lm
 
 export OMP_NUM_THREADS=1
 

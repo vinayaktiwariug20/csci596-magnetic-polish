@@ -11,8 +11,8 @@ set -euo pipefail
 
 cd "$SLURM_SUBMIT_DIR/c" || exit 1
 
-mpicc -O2 -Wall -Wextra -fopenmp -DTIE_DCHI \
-    -o soft_mpi soft_mpi.c -lm
+mpicc -O2 -Wall -Wextra -fopenmp -DTIE_DCHI -DUSE_MPI \
+    -o soft_mpi soft.c -lm
 
 export OMP_NUM_THREADS=1
 
