@@ -516,11 +516,11 @@ int main(int argc, char **argv) {
     if (mpi_rank != 0)
         freopen("/dev/null", "w", stdout);
 
-    if (argc < 6) { fprintf(stderr, "usage: %s field_center.txt phi N ideal|fixed|free seed [film_thickness_in_a [chi_in [static_hold_s [start_spread_deg [out.csv|- [cutoff_a]]]]]]\n", argv[0]); return 1; }
+    if (argc < 6) { fprintf(stderr, "usage: %s field_center.txt phi N ideal|fixed|free seed [film_thickness_in_a [chi_in [static_hold_s [start_spread_deg [out.csv|- [cutoff_a]]]]]]\n", argv[0]); MPI_Finalize(); return 1; }
     double B0[3], B90[3], Nn[3], kappa0;
     FILE *f = fopen(argv[1], "r");
     if (!f || fscanf(f, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf", B0, B0 + 1, B0 + 2, B90, B90 + 1, B90 + 2, Nn, Nn + 1, Nn + 2, &kappa0) != 10) {
-        fprintf(stderr, "bad field file\n"); return 1;
+        fprintf(stderr, "bad field file\n"); MPI_Finalize(); return 1;
     }
     fclose(f);
     double phi = atof(argv[2]);
@@ -531,7 +531,7 @@ int main(int argc, char **argv) {
     wall = Lz > 0;
     /* film field: chi_in > 0 switches on the field of the magnetised film (needs walls); chi_perp = CHI_PERP */
     double chi_in = argc > 7 ? atof(argv[7]) : 0;
-    if (chi_in > 0 && !wall) { fprintf(stderr, "film field needs a film thickness\n"); return 1; }
+    if (chi_in > 0 && !wall) { fprintf(stderr, "film field needs a film thickness\n"); MPI_Finalize(); return 1; }
 #ifdef TIE_DCHI
     /* a thin flake of in-plane susceptibility chi_in has chi_perp = chi_in / (1 + chi_in) (demagnetised normal to
        its plane), so dchi = chi_in^2 / (1 + chi_in); kappa scales with dchi. Shape anisotropy and the pair forces
@@ -548,7 +548,7 @@ int main(int argc, char **argv) {
         /* rotate the fields so that the local nail normal is z (Rodrigues: R u = u + v x u + v x (v x u) / (1 + c)) */
         unit(Nn);
         double z[3] = {0, 0, 1}, v[3], c = dot(Nn, z), *vec[3] = {B0, B90, Nn};
-        if (c < -0.999) { fprintf(stderr, "nail normal points along -z\n"); return 1; }
+        if (c < -0.999) { fprintf(stderr, "nail normal points along -z\n"); MPI_Finalize(); return 1; }
         cross(Nn, z, v);
         for (int m = 0; m < 3; m++) {
             double *u = vec[m], vu[3], vvu[3];
@@ -568,7 +568,7 @@ int main(int argc, char **argv) {
     xold = malloc(sizeof(double) * 3 * N); posold = malloc(sizeof(double) * 3 * N); flag = malloc(sizeof(int) * N);
     long long tries = 0;
     for (int i = 0; i < N;) {
-        if (++tries > 2000LL * N) { fprintf(stderr, "insertion jammed at %d of %d flakes\n", i, N); return 1; }
+        if (++tries > 2000LL * N) { fprintf(stderr, "insertion jammed at %d of %d flakes\n", i, N); MPI_Finalize(); return 1; }
         double p[3], n[3], r[3];
         for (int k = 0; k < 3; k++) { p[k] = urand() * Lb[k]; n[k] = grand(); }
         if (spread0 >= 0) for (int k = 0; k < 3; k++) n[k] = Nn[k] + spread0 * M_PI / 180 / sqrt(2) * n[k];
@@ -601,9 +601,9 @@ int main(int argc, char **argv) {
     /* magnetic forces between flakes: argument 11 is the cutoff in a (0 = off); strength from chi_in */
     rcut = argc > 11 ? atof(argv[11]) : 0;
     if (rcut > 0) {
-        if (mode != 2 || chi_in <= 0) { fprintf(stderr, "flake-flake forces need mode free and chi_in > 0\n"); return 1; }
+        if (mode != 2 || chi_in <= 0) { fprintf(stderr, "flake-flake forces need mode free and chi_in > 0\n"); MPI_Finalize(); return 1; }
         for (int k = 0; k < 3; k++)
-            if (!(wall && k == 2) && 2 * (int)ceil(rcut / csv[k]) + 1 > ncv[k]) { fprintf(stderr, "box too small for cutoff %g\n", rcut); return 1; }
+            if (!(wall && k == 2) && 2 * (int)ceil(rcut / csv[k]) + 1 > ncv[k]) { fprintf(stderr, "box too small for cutoff %g\n", rcut); MPI_Finalize(); return 1; }
         wdip = calloc(3 * N, sizeof(double)); vdip = calloc(3 * N, sizeof(double));
     }
     double cp0, ca0, cp1, ca1;
