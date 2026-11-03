@@ -348,3 +348,24 @@ Reading:
 - Crowding does not stop alignment in this model, even past the crowding point (a/h 20 at 10% and a/h 40 at 5% are both at phi a/h = 2): the mean miss stays below 0.2 deg everywhere, and the rms of 1.5-2.6 deg comes from a few flakes, the size of the residual the rotation limit leaves (see "Rotation limit with contact").
 - What crowding does do is forbid the random start: at a/h 40 and 10% the flakes cannot be placed at random orientations at all. A real coat at that loading would already be in locally parallel stacks before the magnet is applied.
 - So a thinner flake alone does not give Pereira's threshold. Our contact is frictionless and the medium purely viscous, so sliding flakes always find a way past each other. Friction between flakes, a gel yield stress, or stacks that have to turn as a whole are the remaining crowding mechanisms; squares (corner contacts) belong with these.
+
+## Friction between flakes (Nov 3)
+
+Coulomb friction in the contact projection, compile-time `-DMU=0.5` (default 0, byte-identical to before): at each flake-flake contact the sliding of the two contact points since the start of the substep is undone, up to MU times that sweep's normal correction (stick below, slip above). Spin about the flake normal is not modelled, so friction acts on translation and tilting only; walls stay frictionless. Same test as above (centre, film 12a, 2000 flakes, contact only, static 5 s, random start). a/h 40 ran on Discovery (job 13699258, 8 cores each).
+
+Mean angle by which flake planes miss B0 (deg), rms in brackets:
+
+| a/h, loading | mu 0 | mu 0.5 | mu 1.0 |
+|---|---|---|---|
+| 10, 1% | 0.00 | 0.00 | 0.00 |
+| 10, 3% | 0.01 | 0.01 | 0.02 |
+| 10, 5% | 0.06 (1.50) | 0.08 (1.50) | 0.08 (1.51) |
+| 10, 10% | 0.20 (2.62) | 0.44 (2.79) | 0.61 (3.00) |
+| 40, 1% | 0.00 | 0.01 | |
+| 40, 3% | 0.09 (1.52) | 0.27 (1.71) | 0.32 (1.76) |
+| 40, 5% | 0.19 (2.38) | 0.57 (2.73) | 0.91 (2.74) |
+
+Reading:
+- Friction makes crowded flakes align worse, and more so for thin flakes: at a/h 40 and 5% the mean miss rises from 0.19 to 0.91 deg with mu 1. The effect follows loading times aspect ratio (a/h 40 at 5% is about a/h 10 at 10% or more), as expected for crowding.
+- It still rises smoothly with loading, with no jump near 5 vol%, and stays below 1 deg on average after 5 s: a sub-degree broadening of the lobe, not the clear widening Pereira et al. report. Not checked: whether it relaxes with longer holds (then friction only slows alignment) or stays (then flakes are jammed).
+- Summary of the loading question so far: contact, thinner flakes, friction, flake-flake magnetic forces and switching all leave alignment within about 1 deg up to 10%, except the slow chain-driven rotation under long static holds. The loading effect in real polish most likely needs something outside this model: polydisperse and irregular flakes (10-60 um, square), a gel that resists slow flow, or the coat's own drying flows.

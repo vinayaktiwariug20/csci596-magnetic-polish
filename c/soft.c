@@ -58,6 +58,9 @@
 #define MAXSWEEP 20
 #define TOL 0.02
 #define RELAX 0.7
+#ifndef MU
+#define MU 0.0     /* Coulomb friction between flakes (-DMU=0.5); 0 = frictionless sliding */
+#endif
 #ifndef MAXROT
 #define MAXROT (0.05 * H / A)   /* largest turn per substep with contact: the rim moves at most H/20 */
 #endif
@@ -264,6 +267,27 @@ static double sweep(long long *ncont, long long *ncross) {
                 double gm = RELAX * pen / (w > 1e-12 ? w : 1e-12), g[3];
                 for (int k = 0; k < 3; k++) g[k] = -gm * e[k];         /* push on i, away from j */
                 apply_push(ni, p, g, DP, DR);
+                if (MU > 0) {
+                    /* friction: undo the sliding of the contact points since the start of the substep, at most
+                       MU times this sweep's normal correction (stick below that, slip above); spin about n is
+                       not modelled, so the material point moves by the centre shift plus (n_old x n) x r */
+                    double wi[3], wj[3], ti[3], tj[3], rel[3];
+                    cross(xold + 3 * i, ni, wi); cross(xold + 3 * j, nj, wj);
+                    cross(wi, p, ti); cross(wj, qj, tj);
+                    for (int k = 0; k < 3; k++)
+                        rel[k] = mi(pos[3 * i + k] - posold[3 * i + k], k) + ti[k] - mi(pos[3 * j + k] - posold[3 * j + k], k) - tj[k];
+                    double rn = dot(rel, e);
+                    for (int k = 0; k < 3; k++) rel[k] -= rn * e[k];
+                    double rt = sqrt(dot(rel, rel));
+                    if (rt > 1e-12) {
+                        double t[3], gt[3];
+                        for (int k = 0; k < 3; k++) t[k] = rel[k] / rt;
+                        double wt = mobility(ni, p, t, mode == 2) + mobility(nj, qj, t, mode == 2);
+                        double gf = RELAX * fmin(rt, MU * pen) / (wt > 1e-12 ? wt : 1e-12);
+                        for (int k = 0; k < 3; k++) gt[k] = -gf * t[k];
+                        apply_push(ni, p, gt, DP, DR);
+                    }
+                }
                 nct++; if (pen > mp) mp = pen;
             }
         }
