@@ -329,3 +329,22 @@ Reading:
 | 10% | 0.975 | 1.000 | 0.979 | (percolates by contact) | |
 
 - With forces the bead barely sharpens from the brushed start (about 10 deg rms; +0.005 at 1% and 10%, -0.005 at 3%): switching holds the flakes near the shared orientation but the pair forces keep them from closing in on it. The blur is 0.02-0.03 in flatness at every loading and is not monotonic in it (largest at 3%, as under a static field, where crowding at 10% hinders rotation). So flake-flake forces do not explain a loading effect under switching (one seed per loading). They do predict that a static magnet gives a worse, stripe-shaped reflection than switching for the same total time.
+
+## Thinner flakes: crowding under a static magnet (Nov 2)
+
+Pereira et al.'s loading test used a static bar magnet, so this goes back to the static case. Crowding depends on loading times aspect ratio: thin discs can no longer sit at random orientations above a number density of about rho D^3 = 4 (isotropic-nematic, Eppenga and Frenkel 1984), which is phi = 1.6 h/a. That is 16 vol% for our a/h = 10, but 4 vol% for a/h = 40, close to Pereira's threshold of about 5 vol%; real pigments (10-60 um across, about 0.3-0.5 um thick) span a/h of about 10-100. The thickness is now a compile-time option (`-DH=0.025` for a/h = 40; default 0.1). Centre texel, film 12a, 2000 flakes, contact only (no film field, no flake-flake forces), static 5 s, random start (flakes stirred into gel). kappa0 is unchanged, which only rescales time.
+
+Angle by which flake planes miss B0 after 5 s, mean / rms (deg):
+
+| a/h | 1% | 3% | 5% | 10% |
+|---|---|---|---|---|
+| 10 | 0.00 / 0.01 | 0.01 / 0.29 | 0.06 / 1.50 | 0.20 / 2.62 |
+| 20 | 0.00 / 0.02 | 0.08 / 1.94 | 0.11 / 2.01 | 0.11 / 0.50 |
+| 40 | 0.00 / 0.06 | 0.09 / 1.52 | 0.19 / 2.38 | insertion jams (1333 of 2000) |
+
+(A brushed start aligns trivially at the centre: the field lies in the nail plane, which flat flakes already contain; rms miss at most 0.35 deg for all cases.)
+
+Reading:
+- Crowding does not stop alignment in this model, even past the crowding point (a/h 20 at 10% and a/h 40 at 5% are both at phi a/h = 2): the mean miss stays below 0.2 deg everywhere, and the rms of 1.5-2.6 deg comes from a few flakes, the size of the residual the rotation limit leaves (see "Rotation limit with contact").
+- What crowding does do is forbid the random start: at a/h 40 and 10% the flakes cannot be placed at random orientations at all. A real coat at that loading would already be in locally parallel stacks before the magnet is applied.
+- So a thinner flake alone does not give Pereira's threshold. Our contact is frictionless and the medium purely viscous, so sliding flakes always find a way past each other. Friction between flakes, a gel yield stress, or stacks that have to turn as a whole are the remaining crowding mechanisms; squares (corner contacts) belong with these.

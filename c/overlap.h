@@ -7,7 +7,9 @@
 #include <math.h>
 
 #define A 1.0
-#define H 0.1
+#ifndef H
+#define H 0.1   /* thickness; override with -DH=0.025 for thinner flakes (a/h = 40) */
+#endif
 
 /* d = centre of j minus centre of i (minimum image) */
 static int overlap(const double *ni, const double *nj, const double *d) {
