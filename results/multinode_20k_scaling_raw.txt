@@ -1,0 +1,22 @@
+Large multi-node scaling
+N=20000, phi=0.03, static hold=1.0 s
+One MPI process and eight OpenMP threads per node
+
+RUN nodes=1 processes=1 threads=8 repeat=1
+MPI_TIMING processes=1 calls=50 dipole_seconds=10.116093 total_seconds=42.683052
+RUN nodes=1 processes=1 threads=8 repeat=2
+MPI_TIMING processes=1 calls=50 dipole_seconds=10.124463 total_seconds=42.706205
+RUN nodes=1 processes=1 threads=8 repeat=3
+MPI_TIMING processes=1 calls=50 dipole_seconds=10.112549 total_seconds=42.712391
+RUN nodes=2 processes=2 threads=8 repeat=1
+MPI_TIMING processes=2 calls=50 dipole_seconds=5.765804 total_seconds=37.698342
+RUN nodes=2 processes=2 threads=8 repeat=2
+MPI_TIMING processes=2 calls=50 dipole_seconds=5.461584 total_seconds=37.705035
+RUN nodes=2 processes=2 threads=8 repeat=3
+MPI_TIMING processes=2 calls=50 dipole_seconds=5.564779 total_seconds=38.147094
+RUN nodes=4 processes=4 threads=8 repeat=1
+MPI_TIMING processes=4 calls=50 dipole_seconds=4.292691 total_seconds=36.190368
+RUN nodes=4 processes=4 threads=8 repeat=2
+MPI_TIMING processes=4 calls=50 dipole_seconds=4.141949 total_seconds=36.092170
+RUN nodes=4 processes=4 threads=8 repeat=3
+MPI_TIMING processes=4 calls=50 dipole_seconds=4.148977 total_seconds=35.922505

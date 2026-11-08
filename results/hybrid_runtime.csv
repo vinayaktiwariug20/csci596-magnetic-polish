@@ -1,0 +1,5 @@
+mpi_processes,openmp_threads,total_cores,median_force_seconds,median_total_seconds,force_fraction
+1,8,8,1.028887,2.980910,0.345159
+2,4,8,1.490359,4.456318,0.334437
+4,2,8,2.041036,7.351703,0.277628
+8,1,8,1.140323,11.465673,0.099455

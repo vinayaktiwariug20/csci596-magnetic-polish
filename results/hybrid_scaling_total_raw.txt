@@ -1,0 +1,29 @@
+Hybrid MPI + OpenMP scaling
+N=2000, phi=0.03, static hold=1.0 s, total cores=8
+
+RUN processes=1 threads=8 repeat=1
+MPI_TIMING processes=1 calls=50 dipole_seconds=1.031091 total_seconds=2.980910
+RUN processes=1 threads=8 repeat=2
+MPI_TIMING processes=1 calls=50 dipole_seconds=1.028887 total_seconds=3.037535
+RUN processes=1 threads=8 repeat=3
+MPI_TIMING processes=1 calls=50 dipole_seconds=1.023383 total_seconds=2.886414
+RUN processes=2 threads=4 repeat=1
+MPI_TIMING processes=2 calls=50 dipole_seconds=1.478828 total_seconds=4.456318
+RUN processes=2 threads=4 repeat=2
+MPI_TIMING processes=2 calls=50 dipole_seconds=1.490359 total_seconds=4.453066
+RUN processes=2 threads=4 repeat=3
+MPI_TIMING processes=2 calls=50 dipole_seconds=1.540144 total_seconds=4.508889
+RUN processes=4 threads=2 repeat=1
+MPI_TIMING processes=4 calls=50 dipole_seconds=2.041036 total_seconds=7.351703
+RUN processes=4 threads=2 repeat=2
+MPI_TIMING processes=4 calls=50 dipole_seconds=2.112577 total_seconds=7.436432
+RUN processes=4 threads=2 repeat=3
+MPI_TIMING processes=4 calls=50 dipole_seconds=1.855618 total_seconds=7.165107
+RUN processes=8 threads=1 repeat=1
+MPI_TIMING processes=8 calls=50 dipole_seconds=1.166958 total_seconds=11.491926
+RUN processes=8 threads=1 repeat=2
+MPI_TIMING processes=8 calls=50 dipole_seconds=1.140323 total_seconds=11.465673
+RUN processes=8 threads=1 repeat=3
+MPI_TIMING processes=8 calls=50 dipole_seconds=1.126028 total_seconds=11.445734
+
+HYBRID VALIDATION PASSED: all configurations match.

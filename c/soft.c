@@ -714,10 +714,25 @@ int main(int argc, char **argv) {
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
     if (mpi_rank != 0) freopen("/dev/null", "w", stdout);   /* print the results once */
+    MPI_Barrier(MPI_COMM_WORLD);
+    double total_start = MPI_Wtime();
+
     int rc = run(argc, argv);
+
+    double local_total_seconds = MPI_Wtime() - total_start;
+    double max_total_seconds = 0.0;
     double max_dipole_seconds = 0.0;
-    MPI_Reduce(&dipole_seconds, &max_dipole_seconds, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-    if (mpi_rank == 0) printf("MPI_TIMING processes=%d calls=%lld dipole_seconds=%.6f\n", mpi_size, dipole_calls, max_dipole_seconds);
+
+    MPI_Reduce(&dipole_seconds, &max_dipole_seconds, 1,
+               MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&local_total_seconds, &max_total_seconds, 1,
+               MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+
+    if (mpi_rank == 0)
+        printf("MPI_TIMING processes=%d calls=%lld "
+               "dipole_seconds=%.6f total_seconds=%.6f\n",
+               mpi_size, dipole_calls,
+               max_dipole_seconds, max_total_seconds);
     MPI_Finalize();
     return rc;
 }
