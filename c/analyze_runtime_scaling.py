@@ -22,7 +22,7 @@ def read_runs(path, run_pattern):
     records = defaultdict(list)
     current_key = None
 
-    for line in path.read_text().splitlines():
+    for line in path.read_text(errors="ignore").splitlines():
         run_match = run_pattern.search(line)
         if run_match:
             current_key = tuple(int(value) for value in run_match.groups())
@@ -63,7 +63,7 @@ multinode_runs = read_runs(
 
 
 with (RESULTS / "hybrid_runtime.csv").open("w", newline="") as file:
-    writer = csv.writer(file)
+    writer = csv.writer(file, lineterminator="\n")
     writer.writerow(
         [
             "mpi_processes",
@@ -107,7 +107,7 @@ baseline_total = multi_summary[1]["total"]
 with (RESULTS / "multinode_20k_scaling.csv").open(
     "w", newline=""
 ) as file:
-    writer = csv.writer(file)
+    writer = csv.writer(file, lineterminator="\n")
     writer.writerow(
         [
             "nodes",

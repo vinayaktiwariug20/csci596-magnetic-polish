@@ -113,11 +113,16 @@ All layouts use eight CPU cores and are repeated three times.
 | 4 | 2 | 2.041 | 7.352 |
 | 8 | 1 | 1.140 | 11.466 |
 
-For this problem size, one MPI process with eight OpenMP threads is fastest
-for both the force kernel and the complete simulation. Increasing the number
-of MPI processes makes total runtime worse when the total core count is
-fixed, because collision handling and the rest of the simulation are repeated
-on every rank.
+With eight total cores fixed, increasing the number of MPI processes leaves
+fewer OpenMP threads for each copy of the non-force work. The median
+non-force time therefore rises from 1.95 to 2.97, 5.31, and 10.33 seconds as
+threads per process fall from 8 to 4, 2, and 1. Replicating the work does not
+itself add the rank times together because ranks run simultaneously; the
+slowdown comes from giving each copy fewer OpenMP threads.
+
+The mixed-layout force timings were higher than in an earlier allocation,
+although the force code and CPU model were unchanged. The difference is
+therefore treated as shared-node, placement, NUMA, or system-load variability.
 
 ## 20,000-flake multi-node scaling
 
@@ -132,13 +137,21 @@ configuration is repeated three times.
 
 | Nodes | Total cores | Force time (s) | Force speedup | Total time (s) | Total speedup |
 |---:|---:|---:|---:|---:|---:|
-| 1 | 8 | 10.116 | 1.00 | 42.706 | 1.00 |
-| 2 | 16 | 5.565 | 1.82 | 37.705 | 1.13 |
-| 4 | 32 | 4.149 | 2.44 | 36.092 | 1.18 |
+| 1 | 8 | 10.144 | 1.00 | 41.731 | 1.00 |
+| 2 | 16 | 7.266 | 1.40 | 36.946 | 1.13 |
+| 4 | 32 | 5.023 | 2.02 | 34.689 | 1.20 |
 
-The force calculation scales substantially across nodes. Total runtime
-improves more modestly because collision handling is replicated. Four nodes
-reduce force time by about 59% and total runtime by about 15.5%.
+The placement-recorded run used AMD EPYC 7513 nodes and bound every rank to
+eight consecutive cores within one socket. The output CSVs from 1, 2, and 4
+nodes were byte-identical.
+
+The force calculation scales across nodes, while non-force time remains
+roughly 30 to 32 seconds because every node still gives its copy eight
+OpenMP threads. On one node, the force kernel is about 24% of total runtime,
+so Amdahl's law limits total speedup to about 1.32 times even if the force
+calculation were made infinitely fast. The measured four-node total speedup
+is 1.20 times: force time falls by about 50%, while total runtime falls by
+about 17%.
 
 ## Results
 
