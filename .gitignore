@@ -13,3 +13,5 @@ c/flakes*.png
 c/chains*.csv
 c/chains*.png
 __pycache__/
+
+.DS_Store
