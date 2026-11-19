@@ -239,7 +239,7 @@ def main():
     )
 
     fig.suptitle(
-        "Platelet reflection proxy",
+        f"Platelet reflection proxy\nIndependent flakes, no flake-flake forces, {args.width_deg:g}° width",
         fontsize=14,
     )
 

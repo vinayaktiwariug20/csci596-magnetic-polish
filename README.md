@@ -291,14 +291,16 @@ Chains over longer holds. Tied model, chi_in 1, brushed start, 2000 flakes, 12a 
 The 3% static and switching states used for the final visualisations were regenerated from commit `1e9b6d8` on USC Discovery. Both runs used seed `1`, `OMP_NUM_THREADS=8`, 2000 flakes, a 12a film, `chi_in=1`, a 10 deg brushed start, and a 4a force cutoff. These regenerated values are the canonical values used in the tables, figures, and slides.
 
 ```bash
-cd /home1/halwasia/csci596-magnetic-polish
+# Run from the repository root
+RUNS="../csci596-magnetic-polish-runs/reproduction"
+mkdir -p "$RUNS"
 module purge
 module load ver/2607
 module load gcc/15.3.0
 export OMP_NUM_THREADS=8
-gcc -O2 -fopenmp -Wall -DTIE_DCHI c/soft.c -o /home1/halwasia/csci596-magnetic-polish-runs/shreeya/soft_tied -lm
-/home1/halwasia/csci596-magnetic-polish-runs/shreeya/soft_tied c/field_center.txt 0.03 2000 free 1 12 1 45 10 /home1/halwasia/csci596-magnetic-polish-runs/shreeya/static_3pct_45s.csv 4
-/home1/halwasia/csci596-magnetic-polish-runs/shreeya/soft_tied c/field_center.txt 0.03 2000 free 1 12 1 0 10 /home1/halwasia/csci596-magnetic-polish-runs/shreeya/switching_3pct_60s.csv 4
+gcc -O2 -fopenmp -Wall -DTIE_DCHI c/soft.c -o $RUNS/soft_tied -lm
+$RUNS/soft_tied c/field_center.txt 0.03 2000 free 1 12 1 45 10 $RUNS/static_3pct_45s.csv 4
+$RUNS/soft_tied c/field_center.txt 0.03 2000 free 1 12 1 0 10 $RUNS/switching_3pct_60s.csv 4
 ```
 
 For switching, chain statistics are evaluated separately along B0 and B90. `c/chains_field.py` uses the same 2.2a distance and 37 deg angular criteria as `chains.py`, but allows the field direction to be selected instead of assuming B0.
@@ -314,6 +316,8 @@ For switching, chain statistics are evaluated separately along B0 and B90. `c/ch
 | 10%, no forces 5 s | 0.988 | 0.00 | 1.27 | (percolates by contact) | |
 | 10%, 5 s | 0.966 | 1.96 | 1.80 | | |
 | 10%, 45 s | 0.864 | 2.14 | 2.27 | | |
+
+Only the 3%, 45 s row with forces was regenerated for the final visualisations; the other rows are from earlier runs.
 
 Reading:
 - Chains form and keep growing along the field: at 3% the mean chain grows from about 10 to 138 flakes between 5 and 45 s, and the regenerated 45 s state has a largest connected chain of 356 flakes. These are branched clusters rather than single lines and are already limited by the box size. At 10% the flakes are close enough that the count saturates; links per flake still rise.
