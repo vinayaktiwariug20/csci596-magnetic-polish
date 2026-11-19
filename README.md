@@ -286,6 +286,23 @@ Magnet pull (magnetophoresis), estimate. A flake's moment in the magnet's gradie
 
 Chains over longer holds. Tied model, chi_in 1, brushed start, 2000 flakes, 12a film, cutoff 4a. Time here is in the kappa0 units of the other runs (1 s = 6 alignment times at 160 mT); real time is shorter in thin polish and longer in gel. `chains.py` links flakes whose centres are closer than 2.2a and whose pair line is within 37 deg of the field, and counts connected chains.
 
+### Reproducibility of the 3% visualisation states
+
+The 3% static and switching states used for the final visualisations were regenerated from commit `1e9b6d8` on USC Discovery. Both runs used seed `1`, `OMP_NUM_THREADS=8`, 2000 flakes, a 12a film, `chi_in=1`, a 10 deg brushed start, and a 4a force cutoff. These regenerated values are the canonical values used in the tables, figures, and slides.
+
+```bash
+cd /home1/halwasia/csci596-magnetic-polish
+module purge
+module load ver/2607
+module load gcc/15.3.0
+export OMP_NUM_THREADS=8
+gcc -O2 -fopenmp -Wall -DTIE_DCHI c/soft.c -o /home1/halwasia/csci596-magnetic-polish-runs/shreeya/soft_tied -lm
+/home1/halwasia/csci596-magnetic-polish-runs/shreeya/soft_tied c/field_center.txt 0.03 2000 free 1 12 1 45 10 /home1/halwasia/csci596-magnetic-polish-runs/shreeya/static_3pct_45s.csv 4
+/home1/halwasia/csci596-magnetic-polish-runs/shreeya/soft_tied c/field_center.txt 0.03 2000 free 1 12 1 0 10 /home1/halwasia/csci596-magnetic-polish-runs/shreeya/switching_3pct_60s.csv 4
+```
+
+For switching, chain statistics are evaluated separately along B0 and B90. `c/chains_field.py` uses the same 2.2a distance and 37 deg angular criteria as `chains.py`, but allows the field direction to be selected instead of assuming B0.
+
 | loading, hold | flatness | miss mean (deg) | links/flake | mean chain (per flake) | longest |
 |---|---|---|---|---|---|
 | 1%, no forces 5 s | 0.988 | 0.00 | 0.14 | 1.4 | 5 |
@@ -293,13 +310,13 @@ Chains over longer holds. Tied model, chi_in 1, brushed start, 2000 flakes, 12a 
 | 3%, no forces 45 s | 0.986 | 0.00 | 0.37 | 2.6 | 13 |
 | 3%, 5 s | 0.971 | 1.53 | 0.74 | 9.6 | 47 |
 | 3%, 15 s | 0.900 | 1.89 | 1.00 | 37 | 139 |
-| 3%, 45 s | 0.736 | 1.87 | 1.21 | 129 | 377 |
+| 3%, 45 s | 0.736 | 1.88 | 1.206 | 138.3 | 356 |
 | 10%, no forces 5 s | 0.988 | 0.00 | 1.27 | (percolates by contact) | |
 | 10%, 5 s | 0.966 | 1.96 | 1.80 | | |
 | 10%, 45 s | 0.864 | 2.14 | 2.27 | | |
 
 Reading:
-- Chains form and keep growing along the field: at 3% the mean chain grows from 10 to 129 flakes between 5 and 45 s, the largest has 377 flakes, so these are branched clusters rather than single lines, and they are now limited by the box size. At 10% the flakes are close enough that the count saturates; links per flake still rise.
+- Chains form and keep growing along the field: at 3% the mean chain grows from about 10 to 138 flakes between 5 and 45 s, and the regenerated 45 s state has a largest connected chain of 356 flakes. These are branched clusters rather than single lines and are already limited by the box size. At 10% the flakes are close enough that the count saturates; links per flake still rise.
 - The flake planes stay within about 2 deg of the field, but the flakes turn about the field axis, away from the nail plane: flatness falls from 0.97 to 0.74 at 3% over 45 s, with no forces it stays at 0.99. A static field leaves that rotation free (a flake containing B feels no torque about B), and the pair forces inside chains drive it. In `chains_03_45.png` the normals spread along one line (a stripe-shaped reflection lobe, broadened across the field), not into a disc.
 - This is the largest effect of flake-flake forces found so far, and it grows with time rather than with loading: the loss is largest at 3% (0.74), then 1% (0.79), then 10% (0.86), where crowding hinders rotation. A loading threshold would need a further ingredient; a hold-time dependence is a prediction that could be checked against photos of real nails held under the magnet for different times.
 - Open: convergence of the long runs (one seed, 2000 flakes in a box the longest chains already wrap), whether rotating or switching fields (the 0/90 protocol pins the rotation about B) suppress it, and whether it survives with a larger chi_in.
@@ -310,25 +327,25 @@ Same settings as the long holds above (tied model, chi_in 1, 3%, brushed start, 
 
 | run | flatness | links/flake | mean chain (per flake) | longest |
 |---|---|---|---|---|
-| static 45 s, forces (from above) | 0.736 | 1.21 | 129 | 377 |
+| static 45 s, forces (from above) | 0.736 | 1.206 | 138.3 | 356 |
 | switching 60 s, no forces | 1.000 | 0.37 / 0.40 | 2.6 / 2.9 | 13 / 16 |
-| switching 60 s, forces | 0.966 | 0.67 / 0.84 | 15 / 28 | 78 / 152 |
+| switching 60 s, forces | 0.964 | 0.651 / 0.811 | 9.1 / 15.1 | 59 / 57 |
 
 (pairs of numbers: along B0 / along B90)
 
 Reading:
-- Switching suppresses the loss almost completely: after 60 s the flatness is 0.966, against 0.736 after 45 s of static field, and about what a single 5 s static hold gives (0.971). The forces still cost 0.03 against the no-force run (1.000), uniformly through the film depth.
-- Chains still form, mostly along the field of the current phase (28 flakes on average along B90, 15 along B0), but stay much smaller than under a static field (129): each switch turns the field by 90 deg and breaks up chains built along the previous field.
+- Switching suppresses the loss almost completely: after 60 s the regenerated state has flatness 0.964, against 0.736 after 45 s of static field, and remains close to what a single 5 s static hold gives (0.971). The forces still cost about 0.04 against the no-force run (1.000), uniformly through the film depth.
+- Chains still form, with greater connectivity along the current B90 phase (mean chain 15.1 along B90 versus 9.1 along B0), but stay much smaller than under the static field (138.3): each switch turns the field by 90 deg and disrupts chains built along the previous direction.
 - Mechanism: in a static field a flake containing B is free to turn about B, and pair forces inside chains drive that turn. Under 0/90 switching the only orientation that contains both fields is the nail plane, so every phase pulls the flakes back toward it. This is why the cat-eye protocol is robust to flake-flake forces, and it means the large flatness loss found above is specific to a static magnet.
 - Loading series, same protocol (flatness at start / end; chains along B90):
 
 | loading | start | end, no forces | end, forces | mean chain, forces | longest |
 |---|---|---|---|---|---|
 | 1% | 0.971 | 1.000 | 0.976 | 2.3 | 15 |
-| 3% | 0.971 | 1.000 | 0.966 | 28 | 152 |
+| 3% | 0.971 | 1.000 | 0.964 | 15.1 | 57 |
 | 10% | 0.975 | 1.000 | 0.979 | (percolates by contact) | |
 
-- With forces the bead barely sharpens from the brushed start (about 10 deg rms; +0.005 at 1% and 10%, -0.005 at 3%): switching holds the flakes near the shared orientation but the pair forces keep them from closing in on it. The blur is 0.02-0.03 in flatness at every loading and is not monotonic in it (largest at 3%, as under a static field, where crowding at 10% hinders rotation). So flake-flake forces do not explain a loading effect under switching (one seed per loading). They do predict that a static magnet gives a worse, stripe-shaped reflection than switching for the same total time.
+- With forces the bead barely sharpens from the brushed start (about 10 deg rms; +0.005 at 1%, +0.004 at 10%, -0.007 at 3%): switching holds the flakes near the shared orientation but the pair forces keep them from closing in on it. The blur is about 0.02-0.04 in flatness at every loading and is not monotonic in it (largest at 3%, as under a static field, where crowding at 10% hinders rotation). So flake-flake forces do not explain a loading effect under switching (one seed per loading). They do predict that a static magnet gives a worse, stripe-shaped reflection than switching under the protocols tested here.
 
 ## Thinner flakes: crowding under a static magnet (Nov 2)
 
@@ -369,3 +386,91 @@ Reading:
 - Friction makes crowded flakes align worse, and more so for thin flakes: at a/h 40 and 5% the mean miss rises from 0.19 to 0.91 deg with mu 1. The effect follows loading times aspect ratio (a/h 40 at 5% is about a/h 10 at 10% or more), as expected for crowding.
 - It still rises smoothly with loading, with no jump near 5 vol%, and stays below 1 deg on average after 5 s: a sub-degree broadening of the lobe, not the clear widening Pereira et al. report. Not checked: whether it relaxes with longer holds (then friction only slows alignment) or stays (then flakes are jammed).
 - Summary of the loading question so far: contact, thinner flakes, friction, flake-flake magnetic forces and switching all leave alignment within about 1 deg up to 10%, except the slow chain-driven rotation under long static holds. The loading effect in real polish most likely needs something outside this model: polydisperse and irregular flakes (10-60 um, square), a gel that resists slow flow, or the coat's own drying flows.
+
+## Static vs switching visualisation (Nov 19)
+
+Regenerated 3% states from Discovery: 2000 flakes,
+12a film, tied model, chi_in 1, seed 1, brushed start,
+cutoff 4a.
+
+`visualization/compare_states.py` plots the flake centres
+on the nail plane, coloured by tilt, with chain links
+along B0 or B90. Links crossing the periodic boundaries
+are counted but not drawn. The lower panels show Lambert
+equal-area projections of the flake normals. Flatness
+is the mean squared normal component along z.
+
+| run | flatness | median tilt (deg) | links/flake | mean chain (per flake) | longest |
+|---|---|---|---|---|---|
+| static 45 s, B0 | 0.736 | 19.1 | 1.206 | 138.3 | 356 |
+| switching 60 s, B90 | 0.964 | 6.6 | 0.811 | 15.1 | 57 |
+
+Reading:
+
+- Under the static field the normals spread along one
+  direction, consistent with rotation about B0.
+- Switching keeps the normals closer to the nail normal.
+  Median tilt falls from 19.1 to 6.6 deg, and mean chain
+  size from 138.3 to 15.1 flakes.
+- These are single-seed runs in a finite box, with
+  different hold times (45 and 60 s).
+
+Run locally using the saved states
+(requires numpy, scipy and matplotlib):
+
+    RUNS="results/visualization"
+    python visualization/compare_states.py "$RUNS/static_3pct_45s.csv" "$RUNS/switching_3pct_60s.csv" --output "$RUNS/static_vs_switching_final.png"
+
+![Static vs switching](results/visualization/static_vs_switching_final.png)
+
+## Optical reflection proxy (Nov 19)
+
+`visualization/render_brdf.py` evolves independent
+platelet normals at each nail point in `spike/fields.json`.
+The settings are a = 6 um, h/a = 0.1, dchi = 3,
+eta = 300, random start, seed 1, log-normal rate spread
+0.55, RK4 with dt = 0.05 s, 32 flakes per point.
+
+For a normal n and half-vector H = (0,0,1), the
+reflection contribution is exp(-theta/w), where
+theta = acos(|n.H|) and w is the angular width.
+Contributions are averaged per nail point, and both
+panels share a maximum for normalisation.
+
+Static 45 s vs six cycles of 5 s B0 and 5 s B90,
+varying the reflection width only:
+
+| width (deg) | static peak | switching peak | static mean | switching mean |
+|---|---|---|---|---|
+| 4 | 0.120 | 1.000 | 0.003 | 0.002 |
+| 8 | 0.197 | 1.000 | 0.011 | 0.007 |
+| 12 | 0.268 | 1.000 | 0.025 | 0.017 |
+
+Reading:
+
+- The static field gives a weak vertical stripe;
+  switching gives a compact bright patch. Both patterns
+  persist at all three widths.
+- Switching has the higher peak but a lower spatial
+  mean. At 8 deg its peak is about five times the static
+  peak.
+- This is a reflection proxy, not calibrated reflectance.
+  The width is assumed and each width run has its own
+  normalisation.
+- The optical model uses independent flakes with a
+  random start, not the interacting flakes from the
+  Discovery runs above. No flake-flake forces are
+  included here.
+
+Run locally:
+
+    RUNS="results/visualization"
+    for WIDTH in 4 8 12; do
+        python visualization/render_brdf.py spike/fields.json --eta 300 --flakes 32 --width-deg "$WIDTH" --output "$RUNS/brdf_width_${WIDTH}.png"
+    done
+
+Reflection maps: [4 deg](results/visualization/brdf_width_4.png),
+[8 deg](results/visualization/brdf_width_8.png),
+[12 deg](results/visualization/brdf_width_12.png).
+
+![Reflection proxy, 8 deg](results/visualization/brdf_width_8.png)

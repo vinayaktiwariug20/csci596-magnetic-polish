@@ -18,7 +18,7 @@ def chains(head, d, field_key):
     box = head["box"]
 
     b = head[field_key]
-    b /= np.linalg.norm(b)
+    b = b / np.linalg.norm(b)
 
     x = d[:, :3]
 

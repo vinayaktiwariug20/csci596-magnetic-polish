@@ -45,7 +45,7 @@ def chain_data(head, d, field_key):
     box = head["box"]
 
     b = head[field_key]
-    b /= np.linalg.norm(b)
+    b = b / np.linalg.norm(b)
 
     x = d[:, :3]
 
@@ -207,7 +207,7 @@ def plot_state(ax_xy, ax_n, path, label, field_key):
     bxy = b[:2]
 
     if np.linalg.norm(bxy) > 0:
-        bxy /= np.linalg.norm(bxy)
+        bxy = bxy / np.linalg.norm(bxy)
 
         origin = np.array(
             [0.15 * box[0], 0.15 * box[1]]
