@@ -1,9 +1,10 @@
 """Time-lapse of the bead forming: static field vs 0/90 switching, 0-60 s.
 
 Same independent-platelet dynamics as render_brdf.py (a = 6 um, h/a = 0.1,
-dchi = 3, eta = 300, random start, seed 1, log-normal rate spread 0.55,
+dchi = 3, eta = 300, seed 1, log-normal rate spread 0.55,
 RK4 dt = 0.05 s), no flake-flake forces.  Both protocols run for 60 s here so
 the clocks match (static: B0 throughout; switching: 5 s B0, 5 s B90, ...).
+Flakes start brushed (10 deg rms about the nail normal) unless --start random.
 
 Top row: where the flake normals point at the nail centre (2000 flakes,
 equal-area projection, nail normal at the centre).  Bottom row: the whole
@@ -67,6 +68,7 @@ def main():
     ap.add_argument("fields")
     ap.add_argument("--total", type=float, default=60.0)
     ap.add_argument("--snap", type=float, default=0.25)
+    ap.add_argument("--start", choices=["brushed", "random"], default="brushed")
     ap.add_argument("--fps", type=int, default=24)
     ap.add_argument("--cache", default="timelapse_snaps.npz")
     ap.add_argument("--out", default="timelapse.mp4")
@@ -91,9 +93,15 @@ def main():
         rng = np.random.default_rng(1)
         k0 = kappa0()
         kn = k0 * np.exp(0.55 * rng.standard_normal((n, 32)))
-        x0 = unit(rng.standard_normal((n, 32, 3)))
+        x0 = rng.standard_normal((n, 32, 3))
         kp = k0 * np.exp(0.55 * rng.standard_normal((1, 2000)))
-        p0 = unit(rng.standard_normal((1, 2000, 3)))
+        p0 = rng.standard_normal((1, 2000, 3))
+        if args.start == "random":
+            x0, p0 = unit(x0), unit(p0)
+        else:                       # brushed, 10 deg rms, as in soft.c
+            s = np.radians(10.0) / np.sqrt(2)
+            x0 = unit(N[:, None, :] + s * x0)
+            p0 = unit(N[centre][None, None, :] + s * p0)
         nail, pt = {}, {}
         for name, f in [("static", static_f), ("switching", switch_f)]:
             print(f"evolving {name} ...")
@@ -154,7 +162,7 @@ def main():
     clock = fig.text(0.5, 0.915, "", color="white", ha="center", fontsize=12)
     fig.text(0.5, 0.505, "top: flake normals at the nail centre (equal-area, nail normal at centre)   "
              "bottom: the whole nail lit from overhead", color="#a59fb0", ha="center", fontsize=8)
-    fig.text(0.5, 0.02, "Independent flakes from a random start, no flake-flake forces, 8° reflection lobe",
+    fig.text(0.5, 0.02, f"Independent flakes, {args.start} start, no flake-flake forces, 8° reflection lobe",
              color="#a59fb0", ha="center", fontsize=8)
 
     tmp = tempfile.mkdtemp(prefix="tl_")
