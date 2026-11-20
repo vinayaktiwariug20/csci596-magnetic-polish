@@ -478,3 +478,32 @@ Reflection maps: [4 deg](results/visualization/brdf_width_4.png),
 [12 deg](results/visualization/brdf_width_12.png).
 
 ![Reflection proxy, 8 deg](results/visualization/brdf_width_8.png)
+
+## More visualisations (Nov 20)
+
+Five extra views of the same results. The optical ones (light sweep, time-lapse) use the independent-flake model of `render_brdf.py` above, so they include no flake-flake forces. The others use the regenerated 3% Discovery states.
+
+| script | output | what it shows |
+|---|---|---|
+| `visualization/field_map.py` | `field_map.png` | B0 and B90 over the nail (\|B\| 65-160 mT, surface field lines, out-of-surface angle), and the angle of B0×B90 from vertical; the bead sits where that angle is small, at the nail centre |
+| `visualization/chain_clusters.py` | `chain_clusters.png` | every connected chain cluster coloured separately, plus the fraction of flakes per cluster size; largest cluster 356 (static, along B0) vs 57 (switching, along B90) |
+| `visualization/flakes_vmd.py` | `flakes3d_pair.png` | the flakes as 3D discs in VMD, coloured by tilt (blue flat, red 45 deg or more) |
+| `visualization/light_sweep.py` | `light_sweep.mp4`, `light_sweep_still.png` | the nail under a moving point light, light and eye 25 cm above; each nail point has its own half-vector, so the bead slides as the light tilts |
+| `visualization/timelapse.py` | `timelapse.mp4` | 0-60 s from a random start: flake normals at the nail centre (top) and the whole nail lit from overhead (bottom); static leaves a stripe, switching collapses to a bead within a few seconds of the first B90 phase |
+
+Run locally from the repository root (numpy, scipy, matplotlib; ffmpeg for the videos; VMD for the 3D view). The time-lapse peaks at about 2 GB of memory.
+
+    RUNS="results/visualization"
+    python visualization/field_map.py spike/fields.json --out "$RUNS/field_map.png"
+    python visualization/chain_clusters.py "$RUNS/static_3pct_45s.csv" "$RUNS/switching_3pct_60s.csv" --out "$RUNS/chain_clusters.png"
+    python visualization/flakes_vmd.py "$RUNS/static_3pct_45s.csv" static.tcl --image static.tga --batch
+    vmd -dispdev text -e static.tcl
+    python visualization/light_sweep.py spike/fields.json --out "$RUNS/light_sweep.mp4" --still "$RUNS/light_sweep_still.png"
+    python visualization/timelapse.py spike/fields.json --out "$RUNS/timelapse.mp4"
+
+`flakes3d_pair.png` puts the static and switching VMD renders side by side with a tilt colour bar. On Windows, pass forward-slash paths to `--image` (Tcl drops backslashes).
+
+![Field map](results/visualization/field_map.png)
+![Chain clusters](results/visualization/chain_clusters.png)
+![Flakes in 3D](results/visualization/flakes3d_pair.png)
+![Light sweep still](results/visualization/light_sweep_still.png)
