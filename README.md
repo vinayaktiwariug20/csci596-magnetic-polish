@@ -1,6 +1,31 @@
-# CSCI 596 final project: platelet flakes in magnetic nail polish
+# Cat-eye nail polish: why turning the magnet makes a bead
 
 Team: Vinayak Tiwari, Shreeya Halwasia, Ishita Joshi (USC CSCI 596, Fall 2026).
+
+**Question.** Magnetic nail polish holds tiny metal flakes. One magnet held over the wet nail draws a bright line (the "cat-eye"); turning the magnet 90 degrees back and forth draws a compact bright bead instead. Why, and what do flake-flake interactions change?
+
+![Static field vs 0/90 switching, 0-60 s](results/pitch/timelapse.gif)
+
+*Left: one magnet. Right: magnet switched 0/90 degrees every 5 s. Top: where the flake normals point at the nail centre. Bottom: the whole nail lit from above.*
+
+**Method.**
+- Field of the real magnet at every nail point (from our earlier field solver).
+- Every flake is a 6 um platelet with a full 3D orientation: magnetic torque, viscous drag, contact, and magnetic forces between flakes (C + OpenMP).
+- Force loop split across MPI ranks, run on USC Discovery (up to 4 nodes, 20,000 flakes).
+- A reflection model turns the flake orientations into what the eye sees.
+
+**Results.**
+- One magnet fixes the flakes along one axis only, so they reflect along a line. Switching fixes both: the flakes settle along B0 x B90, which points straight up at the nail centre, so a bead appears within seconds.
+- With forces between flakes, a static magnet builds chains of up to 356 flakes and slowly tips the flakes up (flatness 0.97 to 0.74 over 45 s); switching keeps chains to 57. Prediction: the longer you hold one magnet, the blurrier the line.
+- Parallel: 7.3x speedup on 8 MPI ranks (91% efficiency) for the force loop, but only 1.2x for the full step on 4 nodes, because forces are a quarter of the step (Amdahl limit 1.32x). See [MPI.md](MPI.md).
+
+![Cat-eye under a moving light](results/pitch/light_sweep_still.png)
+
+**Goal by Dec 11.** Optical renders from the brushed start used in the simulations, the parallel scaling write-up, and the hold-time prediction stated against nail photos.
+
+More: [field map](results/visualization/field_map.png), [chains](results/visualization/chain_clusters.png), [3D flakes](results/visualization/flakes3d_pair.png), [moving-light video](results/visualization/light_sweep.mp4). The rest of this page is the full project log.
+
+---
 
 ## What this is
 A particle-level simulation of magnetic platelet flakes in viscous polish, driven by a magnetic field solver and
