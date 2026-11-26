@@ -153,6 +153,10 @@ calculation were made infinitely fast. The measured four-node total speedup
 is 1.20 times: force time falls by about 50%, while total runtime falls by
 about 17%.
 
+## Future work
+
+The current MPI design distributes only the magnetic-force calculation; every rank still stores all flakes and repeats contact handling and time integration. A spatial domain decomposition could assign cells and flakes to ranks, exchange only boundary data, and parallelize collisions as well as magnetic forces. This would reduce replicated work and improve full-simulation scaling beyond the current Amdahl limit.
+
 ## Results
 
 - `results/mpi_scaling_raw.txt`: raw 2,000-flake MPI timings

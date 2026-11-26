@@ -25,7 +25,7 @@ Team: Vinayak Tiwari, Shreeya Halwasia, Ishita Joshi (USC CSCI 596, Fall 2026).
 **Results.**
 - One magnet holds a flat flake along one axis only; it can still spin about the field, so flakes reflect along a line. Flipping holds both axes: the flakes settle along B0 x B90, which points straight up at the nail centre, so a bead forms within seconds.
 - Forces between flakes slowly build chains (up to 356 flakes under one magnet, 57 when flipping) and tip flakes out of the nail plane. This is a slower, secondary effect; how fast it happens in real polish is still open.
-- Parallel: 7.3x speedup on 8 MPI ranks (91% efficiency) for the force loop, but only 1.2x for the full step on 4 nodes, because forces are a quarter of the step (Amdahl limit 1.32x). See [MPI.md](MPI.md).
+- Parallel: In a 2,000-flake single-node test, the force loop achieved 7.3x speedup on 8 MPI ranks (91% efficiency). In a separate 20,000-flake multi-node test, 4 nodes gave 2.0x force-loop speedup but 1.2x full-simulation speedup, close to the 1.32x Amdahl limit. See [MPI.md](MPI.md).
 
 ![Cat-eye under a moving light](results/pitch/light_sweep_still.png)
 
