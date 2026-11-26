@@ -4,10 +4,6 @@ Team: Vinayak Tiwari, Shreeya Halwasia, Ishita Joshi (USC CSCI 596, Fall 2026).
 
 **Question.** Magnetic nail polish holds tiny metal flakes that line up with a magnet. Hold one magnet over the wet nail and you get a bright line, the cat-eye. Flip the magnet 90 degrees a few times and you get a compact bright bead instead. Why?
 
-![Real nails: one magnet held still (left) and flipped 0/90 degrees (right)](results/pitch/nails_line_bead.jpg)
-
-*Our own nails, same air-dry polish. Left: one magnet held still gives the line. Right: flipping the magnet 0/90 degrees gives the bead.*
-
 **Before this course** we built a simulator that treats the flakes as tiny rods ([magnetic-lacquer](https://github.com/vinayaktiwariug20/magnetic-lacquer)). It gets the line, but flipping gives a band, not a bead. **What we changed:** each flake is now a flat plate with a full 3D orientation, and that gives the bead.
 
 ![Rod model vs platelet model under 0/90 switching](spike/platelet_spike.png)
@@ -29,12 +25,18 @@ Team: Vinayak Tiwari, Shreeya Halwasia, Ishita Joshi (USC CSCI 596, Fall 2026).
 
 ![Cat-eye under a moving light](results/pitch/light_sweep_still.png)
 
+**Real polish check.** Same bottle, our own swatches and nails. The model says a magnet held above makes the flakes a concave mirror and one held below a convex mirror, so their lines should slide in opposite directions when tilted. Measured frame by frame from a phone video, they do (correlation -0.94). One magnet held still gives a line and flipping gives a central bright patch, as in the model, not the band of the rod model.
+
+![Magnet above vs below: lines move in opposite directions](results/pitch/swatches_above_below.png)
+
+<img src="results/pitch/nails_line_bead.jpg" alt="Our nails: line (left) and bead (right)" width="480">
+
 **Assumptions and limits.**
 - Flakes are modelled as thin discs. Real cat-eye pigment is irregular thin shards with a wide size spread (microscope video by @deathbyoranges on TikTok); Pereira et al. used regular square flakes. Any thin plate aligns the same way; outline affects only drag (a time rescaling) and close contact.
 - The magnet turns flakes in place rather than moving them: turning is about four orders of magnitude faster than moving at pigment sizes, which the microscope video also shows. The same picture, with flakes as needles, is in [this explanation](https://www.reddit.com/r/RedditLaqueristas/comments/1hzzjou/how_magnetic_polishes_work/); needles explain the line but not the bead.
 - In air-dry polish the pattern blurs mainly after the magnet is removed, before the polish dries. This model has constant viscosity and nothing after removal, so it cannot capture that; adding drying is the natural next step.
 
-**Goal by Dec 11.** Optical renders from the brushed start used in the simulations, the parallel scaling write-up, and a magnet-above vs magnet-below test: the model predicts the line moves against the light when magnetised from above and with it from below.
+**Goal by Dec 11.** Optical renders from the brushed start used in the simulations, the parallel scaling write-up, and the drying step the model is missing.
 
 More: [field map](results/visualization/field_map.png), [chains](results/visualization/chain_clusters.png), [3D flakes](results/visualization/flakes3d_pair.png), [moving-light video](results/visualization/light_sweep.mp4). The rest of this page is the full project log.
 
