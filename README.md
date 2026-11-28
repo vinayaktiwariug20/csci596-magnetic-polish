@@ -1,6 +1,50 @@
-# CSCI 596 final project: platelet flakes in magnetic nail polish
+# Cat-eye nail polish: why turning the magnet makes a bead
 
 Team: Vinayak Tiwari, Shreeya Halwasia, Ishita Joshi (USC CSCI 596, Fall 2026).
+
+**Question.** Magnetic nail polish holds tiny metal flakes that line up with a magnet. Hold one magnet over the wet nail and you get a bright line, the cat-eye. Flip the magnet 90 degrees a few times and you get a compact bright bead instead. Why?
+
+![Real nails: one magnet held still (left) and flipped 0/90 degrees (right)](results/pitch/nails_line_bead.jpg)
+
+*Our own nails, same air-dry polish. Left: one magnet held still gives the line. Right: flipping the magnet 0/90 degrees gives the bead.*
+
+**Before this course** we built a simulator that treats the flakes as tiny rods ([magnetic-lacquer](https://github.com/vinayaktiwariug20/magnetic-lacquer)). It gets the line, but flipping gives a band, not a bead. **What we changed:** each flake is now a flat plate with a full 3D orientation, and that gives the bead.
+
+![Rod model vs platelet model under 0/90 switching](spike/platelet_spike.png)
+
+![Static field vs 0/90 switching, 0-60 s](results/pitch/timelapse.gif)
+
+*Left: one magnet. Right: magnet flipped 0/90 degrees every 5 s. Top: where the flake normals point at the nail centre. Bottom: the whole nail lit from above.*
+
+**Method.**
+- Field of the real magnet at every nail point (from the earlier field solver).
+- Every flake is a 6 um thin plate: magnetic torque, viscous drag, contact, and magnetic forces between flakes (C + OpenMP).
+- Force loop split across MPI ranks, run on USC Discovery (up to 4 nodes, 20,000 flakes).
+- A reflection model turns flake orientations into what the eye sees.
+
+**Results.**
+- One magnet holds a flat flake along one axis only; it can still spin about the field, so flakes reflect along a line. Flipping holds both axes: the flakes settle along B0 x B90, which points straight up at the nail centre, so a bead forms within seconds.
+- Forces between flakes slowly build chains (up to 356 flakes under one magnet, 57 when flipping) and tip flakes out of the nail plane. This is a slower, secondary effect; how fast it happens in real polish is still open.
+- Parallel: In a 2,000-flake single-node test, the force loop achieved 7.3x speedup on 8 MPI ranks (91% efficiency). In a separate 20,000-flake multi-node test, 4 nodes gave 2.0x force-loop speedup but 1.2x full-simulation speedup, close to the 1.32x Amdahl limit. See [MPI.md](MPI.md).
+
+![Cat-eye under a moving light](results/pitch/light_sweep_still.png)
+
+**Real polish check.** Same bottle, our own swatches and nails. The model says a magnet held above makes the flakes a concave mirror and one held below a convex mirror, so their lines should slide in opposite directions when tilted. Measured frame by frame from a phone video, they do (correlation -0.94).
+
+![Magnet above vs below: lines move in opposite directions](results/pitch/swatches_above_below.png)
+
+**Assumptions and limits.**
+- Flakes are modelled as thin discs. Real cat-eye pigment is irregular thin shards with a wide size spread (microscope video by @deathbyoranges on TikTok); Pereira et al. used regular square flakes. Any thin plate aligns the same way; outline affects only drag (a time rescaling) and close contact.
+- The magnet turns flakes in place rather than moving them: turning is about four orders of magnitude faster than moving at pigment sizes, which the microscope video also shows. The same picture, with flakes as needles, is in [this explanation](https://www.reddit.com/r/RedditLaqueristas/comments/1hzzjou/how_magnetic_polishes_work/); needles explain the line but not the bead.
+- In air-dry polish the pattern blurs mainly after the magnet is removed, before the polish dries. This model has constant viscosity and nothing after removal, so it cannot capture that; adding drying is the natural next step.
+
+**Goal by Dec 11.** Optical renders from the brushed start used in the simulations, and the parallel scaling write-up.
+
+**Future work.** Add drying (viscosity rising with time, as in our earlier simulator) and what happens after the magnet is removed, so the model can capture the blurring seen in air-dry polish; and split the nail into regions per MPI rank so contact and time stepping are parallel too (see [MPI.md](MPI.md)).
+
+More: [field map](results/visualization/field_map.png), [chains](results/visualization/chain_clusters.png), [3D flakes](results/visualization/flakes3d_pair.png), [moving-light video](results/visualization/light_sweep.mp4). The rest of this page is the full project log.
+
+---
 
 ## What this is
 A particle-level simulation of magnetic platelet flakes in viscous polish, driven by a magnetic field solver and
