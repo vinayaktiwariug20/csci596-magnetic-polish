@@ -429,55 +429,70 @@ Run locally using the saved states
 
 ## Optical reflection proxy (Nov 19)
 
-`visualization/render_brdf.py` evolves independent
-platelet normals at each nail point in `spike/fields.json`.
-The settings are a = 6 um, h/a = 0.1, dchi = 3,
-eta = 300, random start, seed 1, log-normal rate spread
-0.55, RK4 with dt = 0.05 s, 32 flakes per point.
+`visualization/render_brdf.py` evolves independent platelet normals
+at each nail point in `spike/fields.json`. The main figures now use
+a 10 deg rms brushed start, matching the initial orientation used
+in the Discovery runs. The original random 3D start is retained
+with `--start random`.
 
-For a normal n and half-vector H = (0,0,1), the
-reflection contribution is exp(-theta/w), where
-theta = acos(|n.H|) and w is the angular width.
-Contributions are averaged per nail point, and both
-panels share a maximum for normalisation.
+Other settings: a = 6 um, h/a = 0.1, dchi = 3, eta = 300,
+seed 1, log-normal rate spread 0.55, RK4 with dt = 0.05 s,
+32 flakes per point.
+
+For a normal n and half-vector H = (0,0,1), the reflection
+contribution is exp(-theta/w), where theta = acos(|n.H|)
+and w is the angular width. Contributions are averaged per
+nail point, and the static and switching panels share a
+maximum for normalisation.
 
 Static 45 s vs six cycles of 5 s B0 and 5 s B90,
-varying the reflection width only:
+with a brushed start:
 
 | width (deg) | static peak | switching peak | static mean | switching mean |
 |---|---|---|---|---|
-| 4 | 0.120 | 1.000 | 0.003 | 0.002 |
-| 8 | 0.197 | 1.000 | 0.011 | 0.007 |
-| 12 | 0.268 | 1.000 | 0.025 | 0.017 |
+| 4 | 0.466 | 1.000 | 0.018 | 0.002 |
+| 8 | 0.626 | 1.000 | 0.052 | 0.007 |
+| 12 | 0.714 | 1.000 | 0.091 | 0.017 |
 
 Reading:
 
-- The static field gives a weak vertical stripe;
-  switching gives a compact bright patch. Both patterns
-  persist at all three widths.
-- Switching has the higher peak but a lower spatial
-  mean. At 8 deg its peak is about five times the static
-  peak.
+- The static field gives a narrow cat-eye stripe, while switching
+  gives a compact bright patch. Both patterns persist at all
+  three reflection widths.
+- The brushed start makes the static stripe brighter. At 8 deg
+  its peak rises from 0.197 with a random start to 0.626 with
+  a brushed start.
+- Switching still has the higher peak, but the static stripe
+  has the higher spatial mean.
+- The random-start 8 deg run reproduces the earlier results:
+  static peak 0.197, mean 0.011; switching peak 1.000,
+  mean 0.007.
 - This is a reflection proxy, not calibrated reflectance.
-  The width is assumed and each width run has its own
-  normalisation.
-- The optical model uses independent flakes with a
-  random start, not the interacting flakes from the
-  Discovery runs above. No flake-flake forces are
-  included here.
+  The model uses independent flakes without flake-flake forces,
+  unlike the interacting-particle Discovery runs. Each width
+  is normalised separately, and the two protocols have
+  different hold times.
 
 Run locally:
 
     RUNS="results/visualization"
     for WIDTH in 4 8 12; do
-        python visualization/render_brdf.py spike/fields.json --eta 300 --flakes 32 --width-deg "$WIDTH" --output "$RUNS/brdf_width_${WIDTH}.png"
+        python visualization/render_brdf.py spike/fields.json --eta 300 --flakes 32 --start brushed --start-deg 10 --width-deg "$WIDTH" --output "$RUNS/brdf_width_${WIDTH}.png"
     done
 
-Reflection maps: [4 deg](results/visualization/brdf_width_4.png),
+For the original random-start comparison:
+
+    python visualization/render_brdf.py spike/fields.json --eta 300 --flakes 32 --start random --width-deg 8 --output results/visualization/brdf_width_8_random.png
+
+Brushed-start maps: [4 deg](results/visualization/brdf_width_4.png),
 [8 deg](results/visualization/brdf_width_8.png),
 [12 deg](results/visualization/brdf_width_12.png).
 
-![Reflection proxy, 8 deg](results/visualization/brdf_width_8.png)
+Random-start maps: [4 deg](results/visualization/brdf_width_4_random.png),
+[8 deg](results/visualization/brdf_width_8_random.png),
+[12 deg](results/visualization/brdf_width_12_random.png).
+
+![Reflection proxy, brushed start, 8 deg](results/visualization/brdf_width_8.png)
 
 ## More visualisations (Nov 20)
 
@@ -489,7 +504,7 @@ Five extra views of the same results. The optical ones (light sweep, time-lapse)
 | `visualization/chain_clusters.py` | `chain_clusters.png` | every connected chain cluster coloured separately, plus the fraction of flakes per cluster size; largest cluster 356 (static, along B0) vs 57 (switching, along B90) |
 | `visualization/flakes_vmd.py` | `flakes3d_pair.png` | the flakes as 3D discs in VMD, coloured by tilt (blue flat, red 45 deg or more) |
 | `visualization/light_sweep.py` | `light_sweep.mp4`, `light_sweep_still.png` | the nail under a moving point light, light and eye 25 cm above; each nail point has its own half-vector, so the bead slides as the light tilts |
-| `visualization/timelapse.py` | `timelapse.mp4` | 0-60 s from a random start: flake normals at the nail centre (top) and the whole nail lit from overhead (bottom); static leaves a stripe, switching collapses to a bead within a few seconds of the first B90 phase |
+| `visualization/timelapse.py` | `timelapse.mp4` | 0-60 s from a brushed start (10 deg): flake normals at the nail centre (top) and the whole nail lit from overhead (bottom); static leaves a stripe, switching collapses to a bead within a few seconds of the first B90 phase |
 
 Run locally from the repository root (numpy, scipy, matplotlib; ffmpeg for the videos; VMD for the 3D view). The time-lapse peaks at about 2 GB of memory.
 

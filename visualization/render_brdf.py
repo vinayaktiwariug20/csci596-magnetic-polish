@@ -1,4 +1,9 @@
-"""Render a reflection proxy from simulated platelet orientations."""
+"""Render a reflection proxy from simulated platelet orientations.
+
+Flakes start brushed (default): normal along the local nail normal with an
+rms tilt of --start-deg (10 deg), as in the Discovery runs (soft.c, last
+argument).  --start random gives the earlier isotropic start.
+"""
 
 import argparse
 import json
@@ -21,6 +26,9 @@ def main():
     parser.add_argument("--eta", type=float, default=300.0)
     parser.add_argument("--flakes", type=int, default=32)
     parser.add_argument("--width-deg", type=float, default=8.0)
+    parser.add_argument("--start", choices=["brushed", "random"], default="brushed")
+    parser.add_argument("--start-deg", type=float, default=10.0,
+                        help="rms tilt of the brushed start (deg)")
     parser.add_argument("--output", default="brdf_render.png")
 
     args = parser.parse_args()
@@ -33,6 +41,7 @@ def main():
     p = np.array(data["P"]).reshape(count, 3)
     b0 = np.array(data["B0"]).reshape(count, 3)
     b90 = np.array(data["B90"]).reshape(count, 3)
+    nail_normal = unit(np.array(data["N"]).reshape(count, 3))
 
     mu0 = 4e-7 * np.pi
     a = 6e-6
@@ -106,11 +115,16 @@ def main():
 
         return x
 
-    x0 = unit(
-        rng.standard_normal(
-            (count, args.flakes, 3)
+    noise = rng.standard_normal((count, args.flakes, 3))
+
+    if args.start == "random":
+        x0 = unit(noise)
+    else:
+        # same construction as soft.c: N + (spread / sqrt 2) * gaussian
+        x0 = unit(
+            nail_normal[:, None, :]
+            + np.radians(args.start_deg) / np.sqrt(2) * noise
         )
-    )
 
     static = evolve(
         x0.copy(),
@@ -238,8 +252,13 @@ def main():
         shrink=0.75,
     )
 
+    start_label = (
+        "random start" if args.start == "random"
+        else f"brushed start ({args.start_deg:g}° rms)"
+    )
+
     fig.suptitle(
-        f"Platelet reflection proxy\nIndependent flakes, no flake-flake forces, {args.width_deg:g}° width",
+        f"Platelet reflection proxy\nIndependent flakes, {start_label}, no flake-flake forces, {args.width_deg:g}° width",
         fontsize=14,
     )
 

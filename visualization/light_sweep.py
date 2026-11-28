@@ -1,8 +1,9 @@
 """Cat-eye nail under a moving light: static field vs 0/90 switching.
 
 Extends render_brdf.py. The flake normals come from the same independent-
-platelet dynamics (a = 6 um, h/a = 0.1, dchi = 3, eta = 300, random start,
+platelet dynamics (a = 6 um, h/a = 0.1, dchi = 3, eta = 300,
 seed 1, log-normal rate spread 0.55, RK4 dt = 0.05 s, 32 flakes per point;
+brushed start (10 deg rms) by default, --start random for the isotropic one;
 static 45 s, switching 6 x (5 s B0 + 5 s B90)), so no flake-flake forces.
 
 What is new: instead of a fixed half-vector (0,0,1), each frame places a
@@ -39,8 +40,12 @@ def unit(v):
     return v / np.maximum(np.linalg.norm(v, axis=-1, keepdims=True), 1e-30)
 
 
-def evolve_normals(b0, b90, flakes, eta=300.0):
-    """Same dynamics and settings as render_brdf.py."""
+def evolve_normals(b0, b90, flakes, nail_normal=None, start_deg=10.0, eta=300.0):
+    """Same dynamics and settings as render_brdf.py.
+
+    nail_normal given: brushed start (normal along it, rms tilt start_deg),
+    as in render_brdf.py and soft.c; None: random start.
+    """
     count = len(b0)
     mu0 = 4e-7 * np.pi
     a = 6e-6
@@ -63,7 +68,11 @@ def evolve_normals(b0, b90, flakes, eta=300.0):
             x = unit(x + dt / 6 * (k1 + 2 * k2 + 2 * k3 + k4))
         return x
 
-    x0 = unit(rng.standard_normal((count, flakes, 3)))
+    noise = rng.standard_normal((count, flakes, 3))
+    if nail_normal is None:
+        x0 = unit(noise)
+    else:
+        x0 = unit(nail_normal[:, None, :] + np.radians(start_deg) / np.sqrt(2) * noise)
     static = evolve(x0.copy(), b0, 45.0)
     switching = x0.copy()
     for _ in range(6):
@@ -87,6 +96,7 @@ def main():
     ap.add_argument("fields")
     ap.add_argument("--flakes", type=int, default=32)
     ap.add_argument("--width-deg", type=float, default=8.0)
+    ap.add_argument("--start", choices=["brushed", "random"], default="brushed")
     ap.add_argument("--frames", type=int, default=240)
     ap.add_argument("--fps", type=int, default=30)
     ap.add_argument("--distance", type=float, default=250.0, help="light and eye distance, mm")
@@ -107,7 +117,8 @@ def main():
         static, switching = c["static"], c["switching"]
     else:
         print("evolving flake normals (a few minutes, cached afterwards)...")
-        static, switching = evolve_normals(b0, b90, args.flakes)
+        static, switching = evolve_normals(b0, b90, args.flakes,
+                                           N if args.start == "brushed" else None)
         np.savez_compressed(args.cache, static=static, switching=switching)
 
     # Raster (top-down view of the nail).  Interpolate per-point colours.
@@ -159,7 +170,7 @@ def main():
         ax.set_axis_off()
     fig.suptitle("Cat-eye nail under a moving light", color="white", fontsize=14)
     fig.text(0.5, 0.025,
-             f"Reflection proxy: independent flakes, no flake-flake forces, {args.width_deg:g}° lobe; "
+             f"Reflection proxy: independent flakes, {args.start} start, no flake-flake forces, {args.width_deg:g}° lobe; "
              "light and eye 25 cm above the nail",
              color="#a59fb0", ha="center", fontsize=8)
     label = fig.text(0.5, 0.075, "", color="white", ha="center", fontsize=10)
