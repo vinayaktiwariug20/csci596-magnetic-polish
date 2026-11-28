@@ -38,7 +38,7 @@ Team: Vinayak Tiwari, Shreeya Halwasia, Ishita Joshi (USC CSCI 596, Fall 2026).
 - The magnet turns flakes in place rather than moving them: turning is about four orders of magnitude faster than moving at pigment sizes, which the microscope video also shows. The same picture, with flakes as needles, is in [this explanation](https://www.reddit.com/r/RedditLaqueristas/comments/1hzzjou/how_magnetic_polishes_work/); needles explain the line but not the bead.
 - In air-dry polish the pattern blurs mainly after the magnet is removed, before the polish dries. This model has constant viscosity and nothing after removal, so it cannot capture that; adding drying is the natural next step.
 
-**Goal by Dec 11.** Optical renders from the brushed start used in the simulations, and the parallel scaling write-up.
+**Goal by Dec 11.** The parallel scaling write-up (brushed-start optical renders are now done, see below).
 
 **Future work.** Add drying (viscosity rising with time, as in our earlier simulator) and what happens after the magnet is removed, so the model can capture the blurring seen in air-dry polish; and split the nail into regions per MPI rank so contact and time stepping are parallel too (see [MPI.md](MPI.md)).
 
